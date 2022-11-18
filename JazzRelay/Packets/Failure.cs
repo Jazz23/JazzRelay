@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets
 {
-    internal class Failure : Packet
+    internal class Failure : IncomingPacket
     {
         public int errorId;
         public string errorDescription;

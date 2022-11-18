@@ -12,7 +12,6 @@ using System.Text;
 namespace JazzRelay // Note: actual namespace depends on the project name.
 {
     internal interface IPlugin { }
-    internal class Packet { public PacketType PacketType => (PacketType)Enum.Parse(typeof(PacketType), this.GetType().Name); public bool Send = true; }
     internal class JazzRelay
     {
         static async Task Main(string[] args) => await new JazzRelay().StartRelay();
@@ -44,7 +43,7 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
 
         void InitPacketTypes()
         {
-            var types = Assembly.GetAssembly(typeof(PacketType))?.GetTypes()?.Where(x => typeof(Packet).IsAssignableFrom(x) && x != typeof(Packet));
+            var types = Assembly.GetAssembly(typeof(PacketType))?.GetTypes()?.Where(x => typeof(Packet).IsAssignableFrom(x) && x != typeof(Packet) && x != typeof(IncomingPacket) && x != typeof(OutgoingPacket));
 
             var dict = types?.ToDictionary(type =>
             (PacketType)Enum.Parse(typeof(PacketType), type.Name ?? ""));
@@ -56,7 +55,7 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
                 throw new Exception("Packet types are null for some reason!"); //Compiler made me put this here
             foreach (Type t in types)
             {
-                FieldInfo[]? fields = t.GetFields().Where(x => x.DeclaringType != typeof(Packet)).ToArray();
+                FieldInfo[]? fields = t.GetFields().Where(x => x.DeclaringType == t).ToArray();
                 if (fields != null)
                     _packetFields.Add(t, fields);
             }
@@ -66,12 +65,12 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
         {
             if (!func.Name.StartsWith("Hook")) return false;
             var args = func.GetParameters();
-            if (!typeof(Packet).IsAssignableFrom(args[0].ParameterType)) goto BadPacket;
-            //if (args[1].ParameterType.BaseType != typeof(_2NtWTAbKYSjvnGzhHCogM7SmzJH)) goto BadPacket;
+            if (args[0].ParameterType != typeof(Client)) goto BadPacket;
+            if (!typeof(Packet).IsAssignableFrom(args[1].ParameterType)) goto BadPacket;
             return true;
 
         BadPacket:
-            throw new Exception($"Invalid Hook {func.Name} Detected! Make sure type is HookPacketName(Packet packet)!");
+            throw new Exception($"Invalid Hook {func.Name} Detected! Make sure type is HookPacketName(Client client, Packet packet)!");
         }
 
         void InitPlugins()

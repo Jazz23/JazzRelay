@@ -1,5 +1,6 @@
 ﻿using JazzRelay.Enums;
 using JazzRelay.Extensions;
+using JazzRelay.Packets;
 using JazzRelay.Packets.Utils;
 using Starksoft.Aspen.Proxy;
 using System;
@@ -17,6 +18,7 @@ namespace JazzRelay
         static FieldInfo[] ParentFields = typeof(Packet).GetFields();
         JazzRelay _proxy;
         TcpClient _client;
+        TcpClient _server;
         RC4 _serverRecieveState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
         RC4 _serverSendState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
 
@@ -30,6 +32,12 @@ namespace JazzRelay
             _ = Task.Run(async () => await BeginRelay(client));
         }
 
+        //If the clientStream is the connection between multitool and JazzRelay, then isExalt = true. serverStream is is the connection between us and rotmg.
+        //Otherwise, the clientstream is the connection between rotmg and us, and serverstream is the connection to multitool.
+        //If isExalt = true, then to cipher incoming packets from multitool we use clientreceive, and our cipher out to rotgm is the serversend.
+        //If it is not true, then to cipher incoming packets from rotmg, we use serverReceive, and our cipher out to multitool is clientsend.
+        //We clientsend data to exalt, clientrecieve data from exalt. We serversend packets out to rotmg, and serverrecieve packets from rotmg.
+        //F*** me this got confusing.
         async Task Relay(TcpClient client, TcpClient server)
         {
             NetworkStream clientStream = client.GetStream(), serverStream = server.GetStream();
@@ -98,8 +106,7 @@ namespace JazzRelay
             return array;
         }
 
-        //I modify multitool to send the ip address and port to avoid having to do reconnect nonesense.
-        //I could do reconnect nonesense though if I wanted
+        //I modify multitool to send the ip address and port to avoid having to do reconnect or default nexus nonesense.
         async Task<(string, int)> GetHost(TcpClient client)
         {
             byte[] lengthBuff = new byte[4];
@@ -123,12 +130,29 @@ namespace JazzRelay
             proxyClient.CreateConnectionAsyncCompleted += (sender, args) =>
             {
                 TcpClient server = args.ProxyConnection;
+                _client = client;
+                _server = server;
                 if (server.Connected) Console.WriteLine("Connected to rotmg!");
 
                 _ = Task.Run(async () => await Relay(client, server));
                 _ = Task.Run(async () => await Relay(server, client));
             };
             proxyClient.CreateConnectionAsync(host, port);
+        }
+
+        public async Task SendToClient(IncomingPacket packet)
+        {
+            var bytes = PacketToBytes(packet, false);
+            if (bytes == null) return;
+            _clientSendState.Cipher(bytes, 5);
+            await _client.GetStream().WriteAsync(bytes, 0, bytes.Length);
+        }
+        public async Task SendToServer(OutgoingPacket packet)
+        {
+            var bytes = PacketToBytes(packet, false);
+            if (bytes == null) return;
+            _serverSendState.Cipher(bytes, 5);
+            await _server.GetStream().WriteAsync(bytes, 0, bytes.Length);
         }
     }
 }

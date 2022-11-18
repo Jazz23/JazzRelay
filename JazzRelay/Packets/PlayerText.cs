@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets
 {
-    internal class PlayerText : Packet
+    internal class PlayerText : OutgoingPacket
     {
         public string Text;
     }
