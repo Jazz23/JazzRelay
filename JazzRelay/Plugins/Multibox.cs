@@ -9,13 +9,16 @@ namespace JazzRelay.Plugins
 {
     internal class Multibox : IPlugin
     {
-        //public void HookHello(Client client, Hello packet)
-        //{
+        public void HookHello(Client client, Hello packet)
+        {
 
-        //}
+        }
+
+        //public void HookLoad(Client client, Load packet) { packet._awb0tbsCnBkmxlCKfoiCWtLYpjO = true; }
 
         public async Task HookPlayerText(Client client, PlayerText packet)
         {
+            client.States["test"] = 4;
             if (packet.Text == "dez")
             {
                 packet.Send = false;
@@ -23,9 +26,6 @@ namespace JazzRelay.Plugins
             }
         }
 
-        public void HookFailure(Client client, Failure packet)
-        {
-
-        }
+        public void HookFailure(Client client, Failure packet) { }
     }
 }

@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
+using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay // Note: actual namespace depends on the project name.
 {
@@ -19,14 +20,24 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
         Dictionary<PacketType, List<(IPlugin, MethodInfo)>> _hooks = new(); //Key: Byte. Value: Plugin Instance & Function (hook)
         public List<(IPlugin, MethodInfo)> GetHooks(PacketType pt) => _hooks[pt];
         public bool HasHook(PacketType pt) => _hooks.ContainsKey(pt);
+        public ObjectList GetPersistantObjects(string accessToken)
+        {
+            ObjectList? temp;
+            if (!_persistantObjects.TryGetValue(accessToken, out temp))
+                _persistantObjects.Add(accessToken, temp = new());
+            return temp;
+        }
         Dictionary<PacketType, Type> _packetTypes = new();
         public Dictionary<PacketType, Type> PacketTypes => _packetTypes;
         Dictionary<Type, FieldInfo[]> _packetFields = new();
+        Dictionary<string, ObjectList> _persistantObjects = new();
         public FieldInfo[] GetFields(Type packetType) => _packetFields[packetType]; //I want to throw an error here
-        private readonly List<Proxy> _frontProxies = new List<Proxy>();
-        private int _frontProxiesIndex = 0;
+        readonly List<Proxy> _frontProxies = new List<Proxy>();
+        int _frontProxiesIndex = 0;
         public Proxy FrontProxy => _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
         public bool Listen = true;
+
+        
 
 
 
@@ -77,6 +88,7 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
         {
             List<IPlugin> plugins = new List<IPlugin>()
             {
+                new RelayEssentials(),
                 new Multibox()
             };
             foreach (var plugin in plugins)
@@ -103,11 +115,14 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
 
             while (Listen)
             {
+                GC.Collect();
                 TcpClient client = await server.AcceptTcpClientAsync();
                 Console.WriteLine("Received TCP connection from multitool");
-                new Client(this, client); //TODO: Store these?
+                StartClient(client);
             }
         }
+
+        void StartClient(TcpClient client) => new Client(this, client); //We *want* our client instances to get collected to avoid memory leaks
 
         async Task LoadProxies()
         {

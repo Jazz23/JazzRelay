@@ -17,7 +17,9 @@ namespace JazzRelay.Extensions
             { typeof(int), pr => pr.ReadInt32() },
             { typeof(string), pr => pr.ReadUTF() },
             { typeof(byte[]), pr => pr.ReadByteArray() },
-            { typeof(short), pr => pr.ReadInt16() }
+            { typeof(short), pr => pr.ReadInt16() },
+            { typeof(ushort), pr => pr.ReadUInt16() },
+            { typeof(bool), pr => pr.ReadBoolean() }
         };
 
         private static Dictionary<Type, Action<PacketWriter, object>> _writeTypes = new Dictionary<Type, Action<PacketWriter, object>>
@@ -25,7 +27,9 @@ namespace JazzRelay.Extensions
             { typeof(int), (pr, v) => pr.Write((int)v)},
             { typeof(string), (pr, v) => pr.Write((string)v) },
             { typeof(byte[]), (pr, v) => pr.WriteByteArray((byte[])v) },
-            { typeof(short), (pr, v) => pr.Write((short)v) }
+            { typeof(short), (pr, v) => pr.Write((short)v) },
+            { typeof(ushort), (pr, v) => pr.Write((ushort)v) },
+            { typeof(bool), (pr, v) => pr.Write((bool)v) }
         };
         public static void SetFromReader(this FieldInfo field, object obj, PacketReader reader)
         {

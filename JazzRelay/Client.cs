@@ -10,6 +10,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay
 {
@@ -18,19 +19,24 @@ namespace JazzRelay
         static FieldInfo[] ParentFields = typeof(Packet).GetFields();
         JazzRelay _proxy;
         TcpClient _client;
-        TcpClient _server;
+        TcpClient? _server;
         RC4 _serverRecieveState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
         RC4 _serverSendState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
 
         RC4 _clientRecieveState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
         RC4 _clientSendState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
+        public (string, int) ConnectionInfo;
+        public ObjectList States = new();
+
         public Client(JazzRelay proxy, TcpClient client)
         {
             _proxy = proxy;
             _client = client;
-            //HandlePacket(PacketType.Hello, File.ReadAllBytes("test.bin"), true);
             _ = Task.Run(async () => await BeginRelay(client));
         }
+
+        public void SetPersistantObjects(string accessToken) => States = _proxy.GetPersistantObjects(accessToken);
+
 
         //If the clientStream is the connection between multitool and JazzRelay, then isExalt = true. serverStream is is the connection between us and rotmg.
         //Otherwise, the clientstream is the connection between rotmg and us, and serverstream is the connection to multitool.
@@ -45,24 +51,32 @@ namespace JazzRelay
             RC4 cipherIn = isExalt ? _clientRecieveState : _serverRecieveState;
             RC4 cipherOut = isExalt ? _serverSendState : _clientSendState;
 
-            while (client.Connected && server.Connected && _proxy.Listen)
+            try
             {
-                var headers = new byte[5];
-                await clientStream.ReceiveAll(headers);
-                var data = new byte[headers.ToInt32() - 5];
-                await clientStream.ReceiveAll(data);
-                cipherIn.Cipher(data, 0);
-                PacketType packetType = (PacketType)headers[4];
-                var resultData = headers.Concat(data).ToArray();
-                if (_proxy.HasHook(packetType))
-                    resultData = await HandlePacket(packetType, resultData, isExalt);
-
-                if (resultData.Length > 0)
+                while (clientStream.Socket.Connected && serverStream.Socket.Connected && _proxy.Listen)
                 {
-                    cipherOut.Cipher(resultData, 5);
-                    await serverStream.WriteAsync(resultData, 0, resultData.Length);
+                    byte[] headers = new byte[5];
+                       //BeginRelay READ STUFF IT'S NOT REACHING THE DISPOSE LINE'
+                    if (!(await clientStream.ReceiveAll(headers))) break;
+                    byte[] data = new byte[headers.ToInt32() - 5];
+                    if (!(await clientStream.ReceiveAll(data))) break;
+                if (data == null) break;
+
+                    cipherIn.Cipher(data, 0);
+                    PacketType packetType = (PacketType)headers[4];
+                    var resultData = headers.Concat(data).ToArray();
+                    if (_proxy.HasHook(packetType))
+                        resultData = await HandlePacket(packetType, resultData, isExalt);
+
+                    if (resultData.Length > 0)
+                    {
+                        cipherOut.Cipher(resultData, 5);
+                        await serverStream.WriteAsync(resultData, 0, resultData.Length);
+                    }
                 }
             }
+            catch (Exception ex) { Console.WriteLine(ex.Message); }
+            Console.WriteLine("Disconnected.");
             client.Dispose();
             server.Dispose();
         }
@@ -83,7 +97,7 @@ namespace JazzRelay
                 field.SetFromReader(instance, reader);
 
             foreach (var hook in _proxy.GetHooks(packet))
-                await (((Task?)hook.Item2.Invoke(hook.Item1, new object[1] { instance })) ?? Task.Delay(0));
+                await (((Task?)hook.Item2.Invoke(hook.Item1, new object[2] { this, instance })) ?? Task.Delay(0));
 
             Packet thePacket = (Packet)instance;
             return thePacket.Send ? (PacketToBytes((Packet)instance, isExalt) ?? totalData) : new byte[0];
@@ -119,40 +133,72 @@ namespace JazzRelay
             return (Encoding.ASCII.GetString(host), BitConverter.ToInt32(port, 0));
         }
 
-        async Task BeginRelay(TcpClient client)
+        async Task BeginRelay(TcpClient client, (string, int)? ipport = null)
         {
             Proxy proxy = _proxy.FrontProxy;
-            Socks5ProxyClient proxyClient = new Socks5ProxyClient(proxy.Ip, proxy.Port, proxy.Username, proxy.Password);
-            var connectInfo = await GetHost(client);
+            //Socks5ProxyClient proxyClient = new Socks5ProxyClient(proxy.Ip, proxy.Port, proxy.Username, proxy.Password);
+            var connectInfo = ipport == null ? await GetHost(client) : ((string, int))ipport;
             string host = connectInfo.Item1; int port = connectInfo.Item2;
             Console.WriteLine($"Recieved host {host} and port {port}.");
+            TcpClient serverClient = new TcpClient();
 
-            proxyClient.CreateConnectionAsyncCompleted += (sender, args) =>
+            serverClient.BeginConnect(host, port, (ar) =>
             {
-                TcpClient server = args.ProxyConnection;
-                _client = client;
-                _server = server;
-                if (server.Connected) Console.WriteLine("Connected to rotmg!");
+                if (serverClient.Connected)
+                {
+                    Console.WriteLine("Connected to rotmg!");
+                    _client = client;
+                    _server = serverClient;
+                    ConnectionInfo = connectInfo;
+                    _ = Task.Run(async () => await Relay(client, serverClient));
+                    _ = Task.Run(async () => await Relay(serverClient, client));
+                }
+                else
+                {
+                    Console.WriteLine("Error connecting to rotmg!");
+                }
+            }, new object());
 
-                _ = Task.Run(async () => await Relay(client, server));
-                _ = Task.Run(async () => await Relay(server, client));
-            };
-            proxyClient.CreateConnectionAsync(host, port);
+            //proxyClient.CreateConnectionAsyncCompleted += (sender, args) =>
+            //{
+            //    TcpClient? server = args.ProxyConnection;
+            //    if (server == null)
+            //    {
+            //        Console.WriteLine("Unable to connect! Retrying");
+            //        _ = Task.Run(async () => await BeginRelay(client, connectInfo));
+            //    }
+            //    else
+            //    {
+            //        if (server.Connected)
+            //        {
+            //            Console.WriteLine("Connected to rotmg!");
+            //            _client = client;
+            //            _server = server;
+            //            ConnectionInfo = connectInfo;
+            //            _ = Task.Run(async () => await Relay(client, server));
+            //            _ = Task.Run(async () => await Relay(server, client));
+            //        }
+            //        else
+            //        {
+            //            Console.WriteLine("Error connecting to rotmg!");
+            //        }
+            //    }
+            //};
+            //proxyClient.CreateConnectionAsync(/*host*/"3.82.126.16", /*port*/2050);
         }
 
-        public async Task SendToClient(IncomingPacket packet)
+        //I could go hog wild with reflection and infer the cipher and client based on the packet type
+        //but I gotta stop somewhere lol
+        public async Task SendToClient(IncomingPacket packet) => await Send(packet, _client, _clientSendState);
+        public async Task SendToServer(OutgoingPacket packet) => await Send(packet, _server, _serverSendState); 
+
+        async Task Send(Packet packet, TcpClient? client, RC4 cipher)
         {
+            if (client == null || !(client?.Connected ?? false)) return;
             var bytes = PacketToBytes(packet, false);
             if (bytes == null) return;
-            _clientSendState.Cipher(bytes, 5);
-            await _client.GetStream().WriteAsync(bytes, 0, bytes.Length);
-        }
-        public async Task SendToServer(OutgoingPacket packet)
-        {
-            var bytes = PacketToBytes(packet, false);
-            if (bytes == null) return;
-            _serverSendState.Cipher(bytes, 5);
-            await _server.GetStream().WriteAsync(bytes, 0, bytes.Length);
+            cipher.Cipher(bytes, 5);
+            await client.GetStream().WriteAsync(bytes, 0, bytes.Length);
         }
     }
 }

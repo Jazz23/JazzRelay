@@ -9,14 +9,15 @@ namespace JazzRelay.Extensions
 {
     public static class SocketExt //No credit to me for this
     {
-        public static async Task ReceiveAll(this NetworkStream stream, byte[] data)
+        public static async Task<bool> ReceiveAll(this NetworkStream stream, byte[] data)
         {
             int num;
             for (var i = 0; i < data.Length; i += num)
             {
                 num = await stream.ReadAsync(data, i, data.Length - i);
-                if (num == 0) throw new Exception("We have reached the end of the stream.");
+                if (num == 0) return false;/*throw new Exception("We have reached the end of the stream.");*/
             }
+            return true;
         }
 
         public static bool IsExalt(this NetworkStream stream) => stream.Socket.RemoteEndPoint?.ToString()?.Split(':')[0] == "127.0.0.1";
