@@ -1,8 +1,10 @@
 ﻿using JazzRelay.Packets.DataTypes;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -68,6 +70,8 @@ namespace JazzRelay.Packets.Utils
         {
             return (int)(BaseStream.Length - BaseStream.Position);
         }
+
+        public T[] ReadArray<T>(FieldInfo field) where T : IDataType, new() => ReadArray<T>(Attribute.IsDefined(field, typeof(CompressedArray)));
 
         public T[] ReadArray<T>(bool compressed = false) where T : IDataType, new()
         {

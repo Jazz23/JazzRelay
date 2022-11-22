@@ -77,7 +77,7 @@ namespace JazzRelay
                     }
                 }
             }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
+            catch (Exception ex) { Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace); }
             Console.WriteLine("Disconnected.");
             client.Dispose();
             server.Dispose();
@@ -90,9 +90,8 @@ namespace JazzRelay
             if (!_proxy.PacketTypes.TryGetValue(packet, out type))
                 throw new Exception("Hooked packet that's not defined!");
 
-            object? instance = Activator.CreateInstance(type);
-            if (instance == null)
-                throw new Exception($"Failed to instantiate packet instance {type.Name}.");
+            object instance = Activator.CreateInstance(type) ?? throw new Exception($"Failed to instantiate packet instance {type.Name}."); ;
+
 
             PacketReader reader = new PacketReader(new MemoryStream(data));
             foreach (FieldInfo field in _proxy.GetFields(type))
@@ -138,55 +137,55 @@ namespace JazzRelay
         async Task BeginRelay(TcpClient client, (string, int)? ipport = null)
         {
             Proxy proxy = _proxy.FrontProxy;
-            //Socks5ProxyClient proxyClient = new Socks5ProxyClient(proxy.Ip, proxy.Port, proxy.Username, proxy.Password);
+            Socks5ProxyClient proxyClient = new Socks5ProxyClient(proxy.Ip, proxy.Port, proxy.Username, proxy.Password);
             var connectInfo = ipport == null ? await GetHost(client) : ((string, int))ipport;
             string host = connectInfo.Item1; int port = connectInfo.Item2;
             Console.WriteLine($"Recieved host {host} and port {port}.");
-            TcpClient serverClient = new TcpClient();
+            //TcpClient serverClient = new TcpClient();
 
-            serverClient.BeginConnect(host, port, (ar) =>
-            {
-                if (serverClient.Connected)
-                {
-                    Console.WriteLine("Connected to rotmg!");
-                    _client = client;
-                    _server = serverClient;
-                    ConnectionInfo = connectInfo;
-                    _ = Task.Run(async () => await Relay(client, serverClient));
-                    _ = Task.Run(async () => await Relay(serverClient, client));
-                }
-                else
-                {
-                    Console.WriteLine("Error connecting to rotmg!");
-                }
-            }, new object());
-
-            //proxyClient.CreateConnectionAsyncCompleted += (sender, args) =>
+            //serverClient.BeginConnect(host, port, (ar) =>
             //{
-            //    TcpClient? server = args.ProxyConnection;
-            //    if (server == null)
+            //    if (serverClient.Connected)
             //    {
-            //        Console.WriteLine("Unable to connect! Retrying");
-            //        _ = Task.Run(async () => await BeginRelay(client, connectInfo));
+            //        Console.WriteLine("Connected to rotmg!");
+            //        _client = client;
+            //        _server = serverClient;
+            //        ConnectionInfo = connectInfo;
+            //        _ = Task.Run(async () => await Relay(client, serverClient));
+            //        _ = Task.Run(async () => await Relay(serverClient, client));
             //    }
             //    else
             //    {
-            //        if (server.Connected)
-            //        {
-            //            Console.WriteLine("Connected to rotmg!");
-            //            _client = client;
-            //            _server = server;
-            //            ConnectionInfo = connectInfo;
-            //            _ = Task.Run(async () => await Relay(client, server));
-            //            _ = Task.Run(async () => await Relay(server, client));
-            //        }
-            //        else
-            //        {
-            //            Console.WriteLine("Error connecting to rotmg!");
-            //        }
+            //        Console.WriteLine("Error connecting to rotmg!");
             //    }
-            //};
-            //proxyClient.CreateConnectionAsync(/*host*/"3.82.126.16", /*port*/2050);
+            //}, new object());
+
+            proxyClient.CreateConnectionAsyncCompleted += (sender, args) =>
+            {
+                TcpClient? server = args.ProxyConnection;
+                if (server == null)
+                {
+                    Console.WriteLine("Unable to connect! Retrying");
+                    _ = Task.Run(async () => await BeginRelay(client, connectInfo));
+                }
+                else
+                {
+                    if (server.Connected)
+                    {
+                        Console.WriteLine("Connected to rotmg!");
+                        _client = client;
+                        _server = server;
+                        ConnectionInfo = connectInfo;
+                        _ = Task.Run(async () => await Relay(client, server));
+                        _ = Task.Run(async () => await Relay(server, client));
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error connecting to rotmg!");
+                    }
+                }
+            };
+            proxyClient.CreateConnectionAsync(host, 2050);
         }
 
         //I could go hog wild with reflection and infer the cipher and client based on the packet type

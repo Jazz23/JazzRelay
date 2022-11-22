@@ -13,6 +13,7 @@ namespace JazzRelay.Packets.DataTypes
     {
         public int objectId;
         public WorldPosData position;
+        [CompressedArray]
         public StatData[] stats;
         public void Read(PacketReader r)
         {

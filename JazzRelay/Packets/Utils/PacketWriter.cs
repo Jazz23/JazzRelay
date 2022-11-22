@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -87,6 +88,8 @@ namespace JazzRelay.Packets.Utils
                 Write(b);
             }
         }
+
+        public void Write(IDataType[] array, FieldInfo field) => Write(array, Attribute.IsDefined(field, typeof(CompressedArray)));
 
         public void Write(IDataType[] array, bool compressed = false)
         {

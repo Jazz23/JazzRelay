@@ -11,9 +11,11 @@
 using JazzRelay.Enums;
 using JazzRelay.Extensions;
 using JazzRelay.Packets;
+using JazzRelay.Packets.DataTypes;
 using JazzRelay.Packets.Utils;
 using JazzRelay.Plugins;
 using Starksoft.Aspen.Proxy;
+using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -49,12 +51,18 @@ namespace JazzRelay
 
         public async Task StartRelay()
         {
-            InitPlugins();
-            InitPacketTypes();
-            //new Client(this, new());
-            _ = Task.Run(LoadProxies);
-            _ = Task.Run(TCPListen);
-            await Task.Delay(-1);
+            try
+            {
+                InitPlugins();
+                InitPacketTypes();
+                _ = Task.Run(LoadProxies);
+                _ = Task.Run(TCPListen);
+                await Task.Delay(-1);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace);
+            }
         }
 
         void InitPacketTypes()

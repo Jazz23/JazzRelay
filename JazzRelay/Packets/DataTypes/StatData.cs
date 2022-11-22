@@ -16,6 +16,9 @@ namespace JazzRelay.Packets.DataTypes
         public int statValue;
         public string stringValue;
 
+        public StatData() { }
+        public StatData(PacketReader r) => Read(r);
+
         public void Read(PacketReader r)
         {
             statType = r.ReadByte();
