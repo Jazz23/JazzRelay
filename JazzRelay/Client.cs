@@ -29,6 +29,7 @@ namespace JazzRelay
         public ObjectList States = new();
         public int ObjectId = -1;
         public WorldPosData Position;
+        public string AccessToken { get; set; }
 
         public Client(JazzRelay proxy, TcpClient client)
         {
@@ -195,6 +196,7 @@ namespace JazzRelay
 
         async Task Send(Packet packet, TcpClient? client, RC4 cipher)
         {
+            Console.WriteLine("sending");
             if (client == null || !(client?.Connected ?? false)) return;
             var bytes = PacketToBytes(packet, false);
             if (bytes == null) return;

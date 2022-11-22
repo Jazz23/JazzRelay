@@ -19,7 +19,11 @@ namespace JazzRelay.Plugins
         }
 
         //I'm choosing no persistance between Exalt restarts/accesstokens. I don't want to wait until update.
-        public void HookHello(Client client, Hello packet) => client.SetPersistantObjects(packet.AccessToken);
+        public void HookHello(Client client, Hello packet)
+        {
+            client.SetPersistantObjects(packet.AccessToken);
+            client.AccessToken = packet.AccessToken;
+        }
 
         public void HookCreateSuccess(Client client, CreateSuccess packet) => client.ObjectId = packet.objectId;
 

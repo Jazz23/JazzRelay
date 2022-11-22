@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using JazzRelay.Packets.DataTypes;
+using System.Collections.Concurrent;
 
 namespace JazzRelay.Plugins
 {
@@ -82,22 +83,28 @@ namespace JazzRelay.Plugins
             public ushort processorRevision;
         }
         #endregion
+        public string id;
         public IntPtr Handle;
         public IntPtr x1;
         public IntPtr x2;
         public IntPtr y1;
         public IntPtr y2;
         IntPtr filler;
+        public bool Active { get; set; }
 
-        public Exalt(WorldPosData pos)
+        public Exalt(string accessToken, WorldPosData pos)
         {
+            id = accessToken;
+            Active = true;
             uint pid;
             GetWindowThreadProcessId(GetForegroundWindow(), out pid);
             Handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
             false, pid);
 
-            SetXs(pos);
+            SetFloats(pos);
         }
+
+        public void ToggleActive() => Active = !Active; //TECHINCALLY this will sync even if all bots are inactive. Bite me
 
         public float ReadX()
         {
@@ -129,7 +136,7 @@ namespace JazzRelay.Plugins
             WriteProcessMemory(Handle, y2, bytes2, 4, out filler);
         }
 
-        void SetXs(WorldPosData loc)
+        void SetFloats(WorldPosData loc)
         {
             try
             {
@@ -185,33 +192,91 @@ namespace JazzRelay.Plugins
     {
         List<Exalt> _bots = new();
         Exalt? _main = null;
+        bool _syncing = false;
 
-        public void Sync() => Task.Run(SyncClients);
-        public async Task SyncClients()
+        public void ToggleSync()
+        {
+            if (_main == null || _bots.Count == 0) return; //We're not setup, sync should do nothing
+            _syncing = !_syncing;
+            if (_syncing) Task.Run(SyncClients);
+        }
+
+        //I tried to do as little operations as possible in this function. Maybe inlining WriteX/WriteY would be faster?
+        public void SyncClients()
         {
             try
             {
-                if (_main == null || _bots.Count == 0) return;
-
-                while (true)
+                while (_syncing && _main != null && _bots.Count > 0)
                 {
                     float x = _main.ReadX();
                     float y = _main.ReadY();
                     byte[] bytesX = BitConverter.GetBytes(x);
                     byte[] bytesY1 = BitConverter.GetBytes(y);
                     byte[] bytesY2 = BitConverter.GetBytes(y * -1);
-                    foreach (var bot in _bots)
+                    for (int i = 0; i < _bots.Count; i++)
                     {
-                        bot.WriteX(bytesX);
-                        bot.WriteY(bytesY1, bytesY2);
+                        var bot = _bots[i];
+                        if (bot.Active)
+                        {
+                            bot.WriteX(bytesX);
+                            bot.WriteY(bytesY1, bytesY2);
+                        }
                     }
-                    //await Task.Delay(1); //Don't wanna destroy cpu
+//hehe              //await Task.Delay(1); //Don't wanna destroy cpu
                 }
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
 
-        public void AddBot(WorldPosData pos) => _bots.Add(new Exalt(pos));
-        public void SetMain(WorldPosData pos) => _main = new Exalt(pos);
+        public void AddBot(string token, WorldPosData pos)
+        {
+            var bot = _bots.FirstOrDefault(x => x.id == token);
+            if (bot == null) //We're not already a bot
+            {
+                if (_main?.id == token) //We're actually main, lets stop syncing but become a bot
+                {
+                    _syncing = false;
+                    _bots.Add(_main);
+                    _main = null;
+                }
+                else //We're not main and we're not a bot. We need a new instance
+                {
+                    _bots.Add(new Exalt(token, pos));
+                }
+            }
+            else //We're already a bot, toggle us off
+                bot.ToggleActive();
+        }
+
+        public void SetMain(string token, WorldPosData pos)
+        {
+            if (_main == null || _main.id != token) //Main is either not assigned or we aren't main, so main must be reassigned
+            {
+                int index = _bots.FindIndex(x => x.id == token);
+                if (index != -1) //We're already a bot, no need to make any new instances
+                {
+                    if (_main != null) //Main is already defined, lets swap em
+                    {
+                        var temp = _bots[index];
+                        _bots[index] = _main; //I'm pretty sure this is atomic
+                        _main = temp;
+                    }
+                    else //Main is not set, lets set main
+                    {
+                        _main = _bots[index];
+                        _bots.RemoveAt(index); //Not race condition, if _main is null we can't be syncing.
+                    }
+                }
+                else //We're not a bot and we're not main, we need a fresh instance of Exalt
+                {
+                    _main = new Exalt(token, pos);
+                }
+            }
+            else //We are main and main is not null, turn off sync
+            {
+                _syncing = false;
+                _main = null;
+            }
+        }
     }
 }
