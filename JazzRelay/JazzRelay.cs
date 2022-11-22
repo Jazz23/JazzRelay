@@ -1,4 +1,14 @@
-﻿using JazzRelay.Enums;
+﻿/* JazzRelay is a proxy designed to be between 059's exalt multitool and rotmg. I use relfection
+ * to read/write packets to avoid having to write all those god damn read writes for every single
+ * packet type. Plugin hooks are also interpreted via reflection instead of manually added them in the constructor.
+ * The compiler hates this so I suppress warning 8618, but it's worth it. 
+ * I use starksoft.aspen to use socks5 proxies (loaded from webshare.com) with my connection to rotmg to allow for multiple
+ * login. Plugin hooks can be async Tasks. Client instances get collected after exalt disconnects or
+ * socket is closed. As of this comment this proxy is bare bones and contains 0 utilities besides
+ * persistant client states.
+ */
+
+using JazzRelay.Enums;
 using JazzRelay.Extensions;
 using JazzRelay.Packets;
 using JazzRelay.Packets.Utils;
@@ -10,7 +20,7 @@ using System.Reflection;
 using System.Text;
 using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
-namespace JazzRelay // Note: actual namespace depends on the project name.
+namespace JazzRelay
 {
     internal interface IPlugin { }
     internal class JazzRelay
@@ -37,10 +47,6 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
         public Proxy FrontProxy => _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
         public bool Listen = true;
 
-        
-
-
-
         public async Task StartRelay()
         {
             InitPlugins();
@@ -50,7 +56,6 @@ namespace JazzRelay // Note: actual namespace depends on the project name.
             _ = Task.Run(TCPListen);
             await Task.Delay(-1);
         }
-
 
         void InitPacketTypes()
         {

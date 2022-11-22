@@ -1,6 +1,7 @@
 ﻿using JazzRelay.Enums;
 using JazzRelay.Extensions;
 using JazzRelay.Packets;
+using JazzRelay.Packets.DataTypes;
 using JazzRelay.Packets.Utils;
 using Starksoft.Aspen.Proxy;
 using System;
@@ -16,7 +17,6 @@ namespace JazzRelay
 {
     internal class Client
     {
-        static FieldInfo[] ParentFields = typeof(Packet).GetFields();
         JazzRelay _proxy;
         TcpClient _client;
         TcpClient? _server;
@@ -27,6 +27,8 @@ namespace JazzRelay
         RC4 _clientSendState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
         public (string, int) ConnectionInfo;
         public ObjectList States = new();
+        public int ObjectId = -1;
+        public WorldPosData Position;
 
         public Client(JazzRelay proxy, TcpClient client)
         {

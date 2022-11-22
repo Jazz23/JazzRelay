@@ -1,4 +1,5 @@
-﻿using JazzRelay.Packets.Utils;
+﻿using JazzRelay.Packets.DataTypes;
+using JazzRelay.Packets.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,17 +20,21 @@ namespace JazzRelay.Extensions
             { typeof(byte[]), pr => pr.ReadByteArray() },
             { typeof(short), pr => pr.ReadInt16() },
             { typeof(ushort), pr => pr.ReadUInt16() },
-            { typeof(bool), pr => pr.ReadBoolean() }
+            { typeof(bool), pr => pr.ReadBoolean() },
+            { typeof(ObjectStatusData[]), pr => pr.ReadArray<ObjectStatusData>() },
+            { typeof(uint), pr => pr.ReadUInt32() }
         };
 
         private static Dictionary<Type, Action<PacketWriter, object>> _writeTypes = new Dictionary<Type, Action<PacketWriter, object>>
         {
-            { typeof(int), (pr, v) => pr.Write((int)v)},
-            { typeof(string), (pr, v) => pr.Write((string)v) },
-            { typeof(byte[]), (pr, v) => pr.WriteByteArray((byte[])v) },
-            { typeof(short), (pr, v) => pr.Write((short)v) },
-            { typeof(ushort), (pr, v) => pr.Write((ushort)v) },
-            { typeof(bool), (pr, v) => pr.Write((bool)v) }
+            { typeof(int), (pw, v) => pw.Write((int)v)},
+            { typeof(string), (pw, v) => pw.Write((string)v) },
+            { typeof(byte[]), (pw, v) => pw.WriteByteArray((byte[])v) },
+            { typeof(short), (pw, v) => pw.Write((short)v) },
+            { typeof(ushort), (pw, v) => pw.Write((ushort)v) },
+            { typeof(bool), (pw, v) => pw.Write((bool)v) },
+            { typeof(ObjectStatusData[]), (pw, v) => pw.Write((ObjectStatusData[])v) },
+            { typeof(uint), (pw, v) => pw.Write((uint)v) }
         };
         public static void SetFromReader(this FieldInfo field, object obj, PacketReader reader)
         {

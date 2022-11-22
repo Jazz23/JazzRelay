@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JazzRelay.Packets.DataTypes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -66,6 +67,15 @@ namespace JazzRelay.Packets.Utils
         public int Remaining()
         {
             return (int)(BaseStream.Length - BaseStream.Position);
+        }
+
+        public T[] ReadArray<T>(bool compressed = false) where T : IDataType, new()
+        {
+            int length = compressed ? ReadCompressed() : ReadInt16();
+            T[] array = new T[length];
+            for (int i = 0; i < length; i++)
+                (array[i] = new T()).Read(this);
+            return array;
         }
     }
 }
