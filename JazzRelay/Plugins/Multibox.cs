@@ -1,5 +1,6 @@
 ﻿using JazzRelay.Packets;
 using JazzRelay.Packets.DataTypes;
+using JazzRelay.Plugins.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,6 +16,8 @@ namespace JazzRelay.Plugins
 
         public void HookPlayerText(Client client, PlayerText packet)
         {
+            _magic.Test();
+            return;
             if (packet.Text == "main")
                 _magic.SetMain(client.AccessToken, client.Position);
             else if (packet.Text == "bot")

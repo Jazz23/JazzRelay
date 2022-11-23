@@ -19,6 +19,7 @@ using System.Collections;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
@@ -48,11 +49,20 @@ namespace JazzRelay
         int _frontProxiesIndex = 0;
         public Proxy FrontProxy => _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
         public bool Listen = true;
+        [DllImport("kernel32.dll")]
+        internal static extern Boolean AllocConsole();
+        public static Form1 Form { get; set; } = new();
 
         public async Task StartRelay()
         {
             try
             {
+                AllocConsole();
+                _ = Task.Run(() =>
+                {
+                    Application.EnableVisualStyles();
+                    Application.Run(Form);
+                });
                 InitPlugins();
                 InitPacketTypes();
                 _ = Task.Run(LoadProxies);
@@ -126,9 +136,11 @@ namespace JazzRelay
             TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), 2060);
             server.Start();
 
+            await Task.Delay(500);
             while (Listen)
             {
                 GC.Collect();
+                Console.WriteLine("Started Listening");
                 TcpClient client = await server.AcceptTcpClientAsync();
                 Console.WriteLine("Received TCP connection from multitool");
                 StartClient(client);

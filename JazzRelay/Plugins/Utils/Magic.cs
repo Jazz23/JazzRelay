@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using JazzRelay.Packets.DataTypes;
 using System.Collections.Concurrent;
 
-namespace JazzRelay.Plugins
+namespace JazzRelay.Plugins.Utils
 {
     class Exalt
     {
@@ -53,6 +53,30 @@ namespace JazzRelay.Plugins
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern Int32 GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("User32.dll")]
+        public static extern Int32 SendMessage(
+            IntPtr hWnd,               // handle to destination window
+            int Msg,                // message
+            int wParam,             // first message parameter
+            int lParam);            // second message parameter
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int left;
+            public int top;
+            public int right;
+            public int bottom;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool GetWindowRect(IntPtr hWnd, ref RECT Rect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int Width, int Height, bool Repaint);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct MEMORY_BASIC_INFORMATION64
@@ -101,7 +125,7 @@ namespace JazzRelay.Plugins
             Handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
             false, pid);
 
-            SetFloats(pos);
+            SetAddresses(pos);
         }
 
         public void ToggleActive() => Active = !Active; //TECHINCALLY this will sync even if all bots are inactive. Bite me
@@ -136,7 +160,7 @@ namespace JazzRelay.Plugins
             WriteProcessMemory(Handle, y2, bytes2, 4, out filler);
         }
 
-        void SetFloats(WorldPosData loc)
+        void SetAddresses(WorldPosData loc)
         {
             try
             {
@@ -187,12 +211,33 @@ namespace JazzRelay.Plugins
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
+
+        public static void Test()
+        {
+            IntPtr handle = GetForegroundWindow();
+            //RECT rect = new RECT();
+            //if (GetWindowRect(handle, ref rect))
+            //    MoveWindow(handle, rect.left - 500, rect.top, 1280, 720, true);
+            try
+            {
+                var handlee = JazzRelay.Form.panel1.Handle;
+                SetParent(handle, handlee);
+                MoveWindow(handle, 0, 0, JazzRelay.Form.panel1.Width, JazzRelay.Form.panel1.Height, true);
+            }
+            catch (Exception e) { Console.WriteLine($"{e.Message}\n{e.StackTrace}"); }
+        }
     }
+
     internal class Magic
     {
         List<Exalt> _bots = new();
         Exalt? _main = null;
         bool _syncing = false;
+
+        public void Test()
+        {
+            Exalt.Test();
+        }
 
         public void ToggleSync()
         {
