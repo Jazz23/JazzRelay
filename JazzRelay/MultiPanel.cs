@@ -10,5 +10,6 @@ namespace JazzRelay
     {
         public bool HasExalt { get; set; } = false;
         public IntPtr ExaltHandle { get; set; } = default;
+        public IntPtr ParentHandle { get; set; } = default;
     }
 }

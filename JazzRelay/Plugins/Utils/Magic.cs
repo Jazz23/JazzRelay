@@ -75,9 +75,6 @@ namespace JazzRelay.Plugins.Utils
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int Width, int Height, bool Repaint);
 
-        [DllImport("user32.dll")]
-        public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
-
         [StructLayout(LayoutKind.Sequential)]
         public struct MEMORY_BASIC_INFORMATION64
         {
@@ -116,11 +113,18 @@ namespace JazzRelay.Plugins.Utils
         IntPtr filler;
         public bool Active { get; set; }
 
-        public Exalt(string accessToken, WorldPosData pos)
+        public Exalt(string accessToken, WorldPosData pos, Panel? panel = null)
         {
             id = accessToken;
             Active = true;
             uint pid;
+
+            if (panel != null)
+            {
+                IntPtr handle = GetForegroundWindow();
+                JazzRelay.Form.SetPanel(panel, handle);
+            }
+
             GetWindowThreadProcessId(GetForegroundWindow(), out pid);
             Handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
             false, pid);
@@ -220,9 +224,7 @@ namespace JazzRelay.Plugins.Utils
             //    MoveWindow(handle, rect.left - 500, rect.top, 1280, 720, true);
             try
             {
-                var handlee = JazzRelay.Form.panel1.Handle;
-                SetParent(handle, handlee);
-                MoveWindow(handle, 0, 0, JazzRelay.Form.panel1.Width, JazzRelay.Form.panel1.Height, true);
+
             }
             catch (Exception e) { Console.WriteLine($"{e.Message}\n{e.StackTrace}"); }
         }
@@ -286,7 +288,16 @@ namespace JazzRelay.Plugins.Utils
                 }
                 else //We're not main and we're not a bot. We need a new instance
                 {
-                    _bots.Add(new Exalt(token, pos));
+                    KeyValuePair<Panel, MultiPanel> panel = JazzRelay.Form.Panels.First();
+                    foreach (var element in JazzRelay.Form.Panels)
+                    {
+                        if (element.Value.HasExalt == false)
+                        {
+                            panel = element;
+                            break;
+                        }
+                    }
+                    _bots.Add(new Exalt(token, pos, panel.Key));
                 }
             }
             else //We're already a bot, toggle us off
@@ -314,7 +325,7 @@ namespace JazzRelay.Plugins.Utils
                 }
                 else //We're not a bot and we're not main, we need a fresh instance of Exalt
                 {
-                    _main = new Exalt(token, pos);
+                    _main = new Exalt(token, pos, JazzRelay.Form.Panels.Last().Key);
                 }
             }
             else //We are main and main is not null, turn off sync
