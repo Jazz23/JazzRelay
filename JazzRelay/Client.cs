@@ -26,9 +26,9 @@ namespace JazzRelay
         RC4 _clientRecieveState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
         RC4 _clientSendState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
         public (string, int) ConnectionInfo;
-        public ObjectList States = new();
+        public ObjectList States { get; set; } = new();
         public int ObjectId = -1;
-        public WorldPosData Position;
+        public WorldPosData Position { get; set; }
         public string AccessToken { get; set; }
 
         public Client(JazzRelay proxy, TcpClient client)

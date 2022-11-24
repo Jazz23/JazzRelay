@@ -1,4 +1,5 @@
 ﻿using JazzRelay.Packets;
+using JazzRelay.Plugins.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Plugins
 {
+    [PluginEnabled]
     internal class RelayEssentials : IPlugin
     {
         public void HookReconnect(Client client, Reconnect packet)

@@ -14,6 +14,7 @@ using JazzRelay.Packets;
 using JazzRelay.Packets.DataTypes;
 using JazzRelay.Packets.Utils;
 using JazzRelay.Plugins;
+using JazzRelay.Plugins.Utils;
 using Starksoft.Aspen.Proxy;
 using System.Collections;
 using System.Net;
@@ -109,14 +110,14 @@ namespace JazzRelay
 
         void InitPlugins()
         {
-            List<IPlugin> plugins = new List<IPlugin>()
-            {
-                new RelayEssentials(),
-                new Multibox()
-            };
+            IEnumerable<Type> plugins = Assembly.GetAssembly(typeof(IPlugin))?.GetTypes()?.Where(x => 
+            typeof(IPlugin).IsAssignableFrom(x) && x != typeof(IPlugin) && Attribute.IsDefined(x, typeof(PluginEnabled))) ??
+                throw new Exception("Error reading plugin types!");
+
             foreach (var plugin in plugins)
             {
-                foreach (var hook in plugin.GetType().GetMethods().Where(IsHook))
+                IPlugin instance = (IPlugin)(Activator.CreateInstance(plugin) ?? throw new Exception($"Error instanstiating plugin type {plugin.Name}!"));
+                foreach (var hook in plugin.GetMethods().Where(IsHook))
                 {
                     string name = hook.Name.Remove(0, 4);
                     object? value;
@@ -125,7 +126,7 @@ namespace JazzRelay
 
                     if (!_hooks.TryGetValue(packet, out var foo))
                         _hooks.Add(packet, new List<(IPlugin, MethodInfo)>());
-                    _hooks[packet].Add((plugin, hook)); //We add this particular hook to the list of hooks associated with that
+                    _hooks[packet].Add((instance, hook)); //We add this particular hook to the list of hooks associated with that
                                                       //packet id.
                 }
             }

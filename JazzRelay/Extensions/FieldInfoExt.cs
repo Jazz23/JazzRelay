@@ -28,7 +28,8 @@ namespace JazzRelay.Extensions
             { typeof(WorldPosData), (pr, f) => new WorldPosData(pr) },
             { typeof(float), (pr, f) => pr.ReadSingle() },
             { typeof(byte), (pr, f) => pr.ReadByte() },
-            { typeof(StatData), (pr, f) => new StatData(pr) }
+            { typeof(StatData), (pr, f) => new StatData(pr) },
+            { typeof(MoveRecord[]), (pr, f) => pr.ReadArray<MoveRecord>(f) }
         };
 
         private static Dictionary<Type, Action<PacketWriter, object, FieldInfo>> _writeTypes = new Dictionary<Type, Action<PacketWriter, object, FieldInfo>>
@@ -46,6 +47,7 @@ namespace JazzRelay.Extensions
             { typeof(float), (pw, v, f) => pw.Write((float)v) },
             { typeof(byte), (pw, v, f) => pw.Write((byte)v) },
             { typeof(StatData), (pw, v, f) => ((StatData)v).Write(pw) },
+            { typeof(MoveRecord[]), (pw, v, f) => pw.Write((MoveRecord[])v, f) }
         };
 
         public static void SetFromReader(this FieldInfo field, object obj, PacketReader reader)

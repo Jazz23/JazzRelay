@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets.DataTypes
 {
-    internal class WorldPosData : IDataType
+    public class WorldPosData : IDataType
     {
         public float X;
         public float Y;
@@ -22,12 +22,12 @@ namespace JazzRelay.Packets.DataTypes
             Read(r);
         }
 
-        public void Read(PacketReader r)
+        public virtual void Read(PacketReader r)
         {
             X = r.ReadSingle();
             Y = r.ReadSingle();
         }
-        public void Write(PacketWriter w)
+        public virtual void Write(PacketWriter w)
         {
             w.Write(X);
             w.Write(Y);

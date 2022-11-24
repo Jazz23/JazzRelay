@@ -10,19 +10,21 @@ using System.Text;
 
 namespace JazzRelay.Plugins
 {
+    [PluginEnabled]
     internal class Multibox : IPlugin
     {
         Magic _magic = new();
+        string[] _commands = new string[] { "main", "bot", "sync" };
 
         public void HookPlayerText(Client client, PlayerText packet)
         {
+            if (_commands.Contains(packet.Text)) packet.Send = false;
             if (packet.Text == "main")
                 _magic.SetMain(client.AccessToken, client.Position);
             else if (packet.Text == "bot")
                 _magic.AddBot(client.AccessToken, client.Position);
             else if (packet.Text == "sync")
                 _magic.ToggleSync();
-            packet.Send = false;
         }
 
         public void LoadAccounts(List<(string, string)> logins)

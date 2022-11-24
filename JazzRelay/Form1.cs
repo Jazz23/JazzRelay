@@ -50,7 +50,7 @@ namespace JazzRelay
         private void Form1_Load(object sender, EventArgs e)
         {
             CheckForIllegalCrossThreadCalls = false; //Bite me
-            DockExistingExalts();
+            //DockExistingExalts();
         }
 
         public void SetPanel(Panel panel, IntPtr handle)
@@ -109,6 +109,7 @@ namespace JazzRelay
             int offset = 0;
             foreach (var panel in Panels.Values)
             {
+                if (panel.ParentHandle == default) continue;
                 SetParent(panel.ExaltHandle, panel.ParentHandle);
                 MoveWindow(panel.ExaltHandle, offset, offset, 800, 600, true);
                 offset += 15;
