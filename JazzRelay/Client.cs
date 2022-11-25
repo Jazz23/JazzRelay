@@ -15,8 +15,15 @@ using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay
 {
-    internal class Client
+    public class Client
     {
+        public (string, int) ConnectionInfo { get; set; }
+        public ObjectList States { get; set; } = new();
+        public int ObjectId { get; set; } = -1;
+        public WorldPosData Position { get; set; }
+        public string AccessToken { get; set; }
+        public bool Connected { get; set; }
+
         JazzRelay _proxy;
         TcpClient _client;
         TcpClient? _server;
@@ -25,11 +32,6 @@ namespace JazzRelay
 
         RC4 _clientRecieveState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
         RC4 _clientSendState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
-        public (string, int) ConnectionInfo;
-        public ObjectList States { get; set; } = new();
-        public int ObjectId = -1;
-        public WorldPosData Position { get; set; }
-        public string AccessToken { get; set; }
 
         public Client(JazzRelay proxy, TcpClient client)
         {
@@ -67,6 +69,7 @@ namespace JazzRelay
 
                     cipherIn.Cipher(data, 0);
                     PacketType packetType = (PacketType)headers[4];
+                    WeGot(packetType);
                     var resultData = headers.Concat(data).ToArray();
                     if (_proxy.HasHook(packetType))
                         resultData = await HandlePacket(packetType, resultData, isExalt);
@@ -79,6 +82,7 @@ namespace JazzRelay
                 }
             }
             catch (Exception ex) { Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace); }
+            Connected = false;
             Console.WriteLine("Disconnected.");
             client.Dispose();
             server.Dispose();
@@ -95,8 +99,11 @@ namespace JazzRelay
 
 
             PacketReader reader = new PacketReader(new MemoryStream(data));
-            foreach (FieldInfo field in _proxy.GetFields(type))
-                field.SetFromReader(instance, reader);
+            if (type.GetMethod("Read")?.DeclaringType == type)
+                ((Packet)instance).Read(reader);
+            else
+                foreach (FieldInfo field in _proxy.GetFields(type))
+                    field.SetFromReader(instance, reader);
 
             foreach (var hook in _proxy.GetHooks(packet))
                 await (((Task?)hook.Item2.Invoke(hook.Item1, new object[2] { this, instance })) ?? Task.Delay(0));
@@ -110,8 +117,11 @@ namespace JazzRelay
             var writer = new PacketWriter(new MemoryStream());
             writer.Write(0);
             writer.Write((byte)packet.PacketType);
-            foreach (FieldInfo field in _proxy.GetFields(packet.GetType()))
-                field.WriteToWriter(packet, writer);
+            if (packet.GetType().GetMethod("Write")?.DeclaringType == packet.GetType())
+                packet.Write(writer);
+            else
+                foreach (FieldInfo field in _proxy.GetFields(packet.GetType()))
+                    field.WriteToWriter(packet, writer);
             var array = (writer.BaseStream as MemoryStream)?.ToArray();
             if (array == null) return null;
             var num = array.Length;
@@ -120,6 +130,16 @@ namespace JazzRelay
             array[2] = (byte)(num >> 8);
             array[3] = (byte)num;
             return array;
+        }
+
+        void WeGot(PacketType pt)
+        {
+            switch (pt)
+            {
+                case PacketType.MapInfo:
+                    Connected = true;
+                    break;
+            }
         }
 
         //I modify multitool to send the ip address and port to avoid having to do reconnect or default nexus nonesense.

@@ -112,9 +112,9 @@ namespace JazzRelay.Plugins.Utils
         IntPtr filler;
         public bool Active { get; set; }
 
-        public Exalt(string accessToken, WorldPosData pos, Panel? panel = null)
+        public Exalt(Client client, Panel? panel = null)
         {
-            id = accessToken;
+            id = client.AccessToken;
             Active = true;
             uint pid;
 
@@ -128,7 +128,7 @@ namespace JazzRelay.Plugins.Utils
             Handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
             false, pid);
 
-            SetAddresses(pos);
+            SetAddresses(client);
         }
 
         public void ToggleActive() => Active = !Active; //TECHINCALLY this will sync even if all bots are inactive. Bite me
@@ -176,10 +176,11 @@ namespace JazzRelay.Plugins.Utils
             WriteProcessMemory(Handle, y2, BitConverter.GetBytes(y * -1), 4, out filler);
         }
 
-        void SetAddresses(WorldPosData loc)
+        void SetAddresses(Client client)
         {
             try
             {
+                _ = client.SendNotification("Don't Move!");
                 SYSTEM_INFO sys_info = new SYSTEM_INFO();
                 GetSystemInfo(out sys_info);
                 long proc_min_address_l = (long)sys_info.minimumApplicationAddress;
@@ -198,6 +199,7 @@ namespace JazzRelay.Plugins.Utils
                 }
 
                 IntPtr bytesRead = (IntPtr)0;
+                WorldPosData loc = client.Position;
                 foreach (var region in regions)
                 {
                     var baseAddress = region.BaseAddress;
@@ -218,6 +220,7 @@ namespace JazzRelay.Plugins.Utils
                             y1 = (IntPtr)address + 4;
                             y2 = (IntPtr)(address + 4 + 0x2C);
                             Console.WriteLine("Pattern found!");
+                            _ = client.SendNotification("Good!");
                             return;
                         }
                     }
@@ -225,7 +228,7 @@ namespace JazzRelay.Plugins.Utils
 
                 throw new Exception("Pattern not matched! Contact Jazz.");
             }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
+            catch (Exception ex) { Console.WriteLine(ex.Message); _ = client.SendNotification("Contact Jazz"); }
         }
     }
 }

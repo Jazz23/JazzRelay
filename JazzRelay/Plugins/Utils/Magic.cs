@@ -50,12 +50,12 @@ namespace JazzRelay.Plugins.Utils
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
 
-        public void AddBot(string token, WorldPosData pos)
+        public void AddBot(Client client)
         {
-            var bot = _bots.FirstOrDefault(x => x.id == token);
+            var bot = _bots.FirstOrDefault(x => x.id == client.AccessToken);
             if (bot == null) //We're not already a bot
             {
-                if (_main?.id == token) //We're actually main, lets stop syncing but become a bot
+                if (_main?.id == client.AccessToken) //We're actually main, lets stop syncing but become a bot
                 {
                     _syncing = false;
                     _bots.Add(_main);
@@ -72,18 +72,18 @@ namespace JazzRelay.Plugins.Utils
                             break;
                         }
                     }
-                    _bots.Add(new Exalt(token, pos, panel.Key));
+                    _bots.Add(new Exalt(client, panel.Key));
                 }
             }
             else //We're already a bot, toggle us off
                 bot.ToggleActive();
         }
 
-        public void SetMain(string token, WorldPosData pos)
+        public void SetMain(Client client)
         {
-            if (_main == null || _main.id != token) //Main is either not assigned or we aren't main, so main must be reassigned
+            if (_main == null || _main.id != client.AccessToken) //Main is either not assigned or we aren't main, so main must be reassigned
             {
-                int index = _bots.FindIndex(x => x.id == token);
+                int index = _bots.FindIndex(x => x.id == client.AccessToken);
                 if (index != -1) //We're already a bot, no need to make any new instances
                 {
                     if (_main != null) //Main is already defined, lets swap em
@@ -100,7 +100,7 @@ namespace JazzRelay.Plugins.Utils
                 }
                 else //We're not a bot and we're not main, we need a fresh instance of Exalt
                 {
-                    _main = new Exalt(token, pos, JazzRelay.Form.Panels.Last().Key);
+                    _main = new Exalt(client, JazzRelay.Form.Panels.Last().Key);
                 }
             }
             else //We are main and main is not null, turn off sync

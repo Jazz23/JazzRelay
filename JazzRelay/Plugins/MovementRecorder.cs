@@ -12,25 +12,18 @@ namespace JazzRelay.Plugins
     [PluginEnabled]
     internal class MovementRecorder : IPlugin
     {
-        string[] _commands = new string[] { "start", "stop", "play" };
+        string[] _commands = new string[] { "start", "stop", "play", "set" };
+        const int _interval = 10;
 
-        public void HookMove(Client client, Move packet)
-        {
-            if (!client.States.ContainsKey("recording")) return;
-            if ((bool)client.States["recording"] && client.States.ContainsKey("records"))
-                ((List<MoveRecord>)client.States["records"]).AddRange(packet.MoveRecs);
-        }
-
-        public void HookPlayerText(Client client, PlayerText packet)
+        public async Task HookPlayerText(Client client, PlayerText packet)
         {
             if (_commands.Contains(packet.Text)) packet.Send = false;
             if (packet.Text == "start")
             {
-                if (!client.States.ContainsKey("exalt"))
-                    client.States["exalt"] = new Exalt(client.AccessToken, client.Position);
                 client.States["recording"] = true;
                 client.States["playing"] = false;
-                client.States["records"] = new List<MoveRecord>();
+                client.States["records"] = new List<WorldPosData>();
+                _ = Task.Run(() => StartRecording(client));
             }
             else if (packet.Text == "stop")
             {
@@ -39,37 +32,57 @@ namespace JazzRelay.Plugins
             }
             else if (packet.Text == "play")
             {
-                object? records;
-                if (!client.States.TryGetValue("records", out records)) return;
                 client.States["playing"] = true;
-                Task.Run(async () => await PlayRecording(client, (List<MoveRecord>)records));
+                _ = Task.Run(async () => await PlayRecording(client));
+            }
+            else if  (packet.Text == "set")
+            {
+                if (!client.States.ContainsKey("exalt"))
+                    client.States["exalt"] = new Exalt(client);
             }
         }
 
-        async Task PlayRecording(Client client, List<MoveRecord> records)
+        async Task StartRecording(Client client)
         {
-            if (!client.States.ContainsKey("playing") || (bool)client.States["playing"] == false) return;
-
-            MoveRecord[] copy = records.ToArray();
-            if (copy.Length == 0) return;
-
-            SetPos(client, copy[0]);
-            while ((bool)client.States["playing"])
+            try
             {
-                for (int i = 1; i < copy.Length && (bool)client.States["playing"]; i++)
+                if (!client.States.ContainsKey("recording")) return;
+                if ((bool)client.States["recording"] && client.States.ContainsKey("records"))
                 {
-                    await Task.Delay(copy[i].Time - copy[i - 1].Time); //Wait the time between moverecords
-                    SetPos(client, copy[i]);
+                    Exalt exalt = (Exalt)client.States["exalt"];
+                    var records = (List<WorldPosData>)client.States["records"];
+                    while (IsRecording(client))
+                    {
+                        records.Add(new WorldPosData(exalt.ReadX(), exalt.ReadY()));
+                        await Task.Delay(_interval);
+                    }
                 }
             }
+            catch (Exception ex) { Console.WriteLine("{0}\n\n{1}", ex.Message, ex.StackTrace); }
         }
 
-        void SetPos(Client client, WorldPosData pos)
+        //Checks to make sure client contains all necessary objects and is recording
+        bool IsRecording(Client client) =>
+            client.Connected && client.States.ContainsKey("recording") && client.States.ContainsKey("records") && client.States.ContainsKey("exalt") && (bool)client.States["recording"];
+
+        async Task PlayRecording(Client client)
         {
-            if (!client.States.ContainsKey("exalt")) return;
+            if (!client.States.ContainsKey("playing") || (bool)client.States["playing"] == false || !client.States.ContainsKey("records")) return;
+
+            WorldPosData[] copy = ((List<WorldPosData>)client.States["records"]).ToArray();
+            if (copy.Length == 0) return;
             Exalt exalt = (Exalt)client.States["exalt"];
-            exalt.WriteX(pos.X);
-            exalt.WriteY(pos.Y);
+
+            while ((bool)client.States["playing"])
+            {
+                for (int i = 0; i < copy.Length && (bool)client.States["playing"]; i++)
+                {
+                    var pos = copy[i];
+                    exalt.WriteX(pos.X);
+                    exalt.WriteY(pos.Y);
+                    await Task.Delay(_interval);
+                }
+            }
         }
     }
 }

@@ -17,6 +17,8 @@ namespace JazzRelay.Packets.DataTypes
 
         public WorldPosData() { }
 
+        public WorldPosData(float x, float y) { X = x; Y = y; }
+
         public WorldPosData(PacketReader r)
         {
             Read(r);

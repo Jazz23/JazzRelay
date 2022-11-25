@@ -26,8 +26,8 @@ using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay
 {
-    internal interface IPlugin { }
-    internal class JazzRelay
+    public interface IPlugin { }
+    public class JazzRelay
     {
         static async Task Main(string[] args) => await new JazzRelay().StartRelay();
 

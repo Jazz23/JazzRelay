@@ -20,9 +20,9 @@ namespace JazzRelay.Plugins
         {
             if (_commands.Contains(packet.Text)) packet.Send = false;
             if (packet.Text == "main")
-                _magic.SetMain(client.AccessToken, client.Position);
+                _magic.SetMain(client);
             else if (packet.Text == "bot")
-                _magic.AddBot(client.AccessToken, client.Position);
+                _magic.AddBot(client);
             else if (packet.Text == "sync")
                 _magic.ToggleSync();
         }

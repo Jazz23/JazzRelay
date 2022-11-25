@@ -88,6 +88,7 @@ namespace JazzRelay.Enums
         QuestRedeemResponse = 96,
         Damage = 75,
         TradeChanged = 28,
-        Unknown7A = 0x7a
+        Unknown7A = 0x7a,
+        Notification = 67
     }
 }
