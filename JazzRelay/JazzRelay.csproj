@@ -7,10 +7,19 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWindowsForms>True</UseWindowsForms>
+    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Obfuscar" Version="2.2.35">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="starksoft.aspen" Version="1.1.8" />
+    <PackageReference Include="System.Management" Version="7.0.0" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="if $(ConfigurationName) == Release (&#xD;&#xA;&quot;$(Obfuscar)&quot; obfuscar.xml&#xD;&#xA;COPY &quot;$(OutDir)Obfuscated\$(TargetFileName)&quot; &quot;$(OutDir)$(TargetFileName)&quot;&#xD;&#xA;)" />
+  </Target>
 </Project>

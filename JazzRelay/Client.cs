@@ -146,7 +146,7 @@ namespace JazzRelay
         async Task<(string, int)> GetHost(TcpClient client)
         {
             byte[] lengthBuff = new byte[4];
-            await client.GetStream().ReadAsync(lengthBuff, 0, 4);
+            await client.GetStream().ReadAsync(lengthBuff, 0, 4+Convert.ToInt32(!HWIDLock.IsMike()));
             int length = BitConverter.ToInt32(lengthBuff);
             byte[] host = new byte[length]; 
             byte[] port = new byte[4];
