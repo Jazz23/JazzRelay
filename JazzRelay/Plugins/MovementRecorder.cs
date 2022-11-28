@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Plugins
 {
-    [PluginEnabled]
+    [PluginDisabled]
     internal class MovementRecorder : IPlugin
     {
         string[] _commands = new string[] { "start", "stop", "play", "set" };

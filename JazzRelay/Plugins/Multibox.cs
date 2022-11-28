@@ -10,7 +10,7 @@ using System.Text;
 
 namespace JazzRelay.Plugins
 {
-    [PluginEnabled]
+    [PluginDisabled]
     internal class Multibox : IPlugin
     {
         Magic _magic = new();

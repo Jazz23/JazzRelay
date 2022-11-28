@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets
 {
-    internal class Reconnect : IncomingPacket
+    public class Reconnect : IncomingPacket
     {
 		public string _a2banwRB0uZoPHbIC0zXKW3IX3i;
 
@@ -19,13 +19,15 @@ namespace JazzRelay.Packets
 		// Token: 0x0400059C RID: 1436
 		public ushort _XJmNMkJzG2oBMCp91qCtsWWPJUc;
 
+		public int Port { get => (int)_XJmNMkJzG2oBMCp91qCtsWWPJUc; set => _XJmNMkJzG2oBMCp91qCtsWWPJUc = (ushort)value; }
+
 		// Token: 0x0400059D RID: 1437
 		public int _7emhxUTdr13gnLDpxCDdUT3o2De;
 
 		// Token: 0x0400059E RID: 1438
-		public int port;
+		public int KeyTime;
 
 		// Token: 0x0400059F RID: 1439
-		public byte[] _97V2C5K1Lg2ntwb8iThqoj2q6fG;
+		public byte[] Key;
 	}
 }
