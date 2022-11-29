@@ -14,7 +14,6 @@ namespace JazzRelay.Plugins
     [PluginEnabled]
     internal class Multibox : IPlugin
     {
-        string[] _commands = new string[] { "main", "bot", "sync", "start", "stop", "play" };
         List<Exalt> _exalts = new();
         Exalt? _main = null;
         bool _syncing = false;
@@ -103,7 +102,10 @@ namespace JazzRelay.Plugins
 
         public void HookPlayerText(Client client, PlayerText packet)
         {
-            if (_commands.Contains(packet.Text)) packet.Send = false;
+            if (!packet.Text.StartsWith("!")) return;
+            packet.Send = false;
+            packet.Text = packet.Text.Remove(0, 1);
+
             if (packet.Text == "main")
             {
                 Exalt exalt;
@@ -132,6 +134,19 @@ namespace JazzRelay.Plugins
             {
                 if (_path.Count > 0)
                     Task.Run(async() => await Play(client));
+            }
+            else if (packet.Text.StartsWith("sethotkey "))
+            {
+                string key = packet.Text.Split(' ')[1];
+                if (key.Length == 1)
+                {
+                    Settings.Default.InteractHotkey = key;
+                    Settings.Default.Save();
+                }
+            }
+            else if (packet.Text == "test")
+            {
+                Task.Run(() => HookUsePortal(client, new UsePortal()));
             }
         }
 
@@ -191,10 +206,34 @@ namespace JazzRelay.Plugins
 
         void StopRecording() => _recording = false;
 
-        public void HookUsePortal(Client client, UsePortal packet)
+        public async Task HookUsePortal(Client client, UsePortal packet)
         {
-            if (_main?.Client == client && _syncing)
-                JazzRelay.Form.PressGlobalKey(Settings.Default.InteractHotkey);
+            if (_main?.Client == client)
+            {
+                if (_syncing)
+                    JazzRelay.Form.PressGlobalKey(Settings.Default.InteractHotkey);
+                else if (client.ConnectionInfo.Reconnect.GameId == 0)
+                {
+                    for (int i = 0; i < _exalts.Count; i++)
+                    {
+                        var exalt = _exalts[i];
+                        if (exalt.Client != client && IsTogether(exalt.Client, client))
+                        {
+                            var player = exalt.Client.FindPlayer(_main.Client.Name);
+                            if (player == null) continue;
+                            _ = Task.Run(async() => 
+                            { 
+                                await exalt.Client.SendToServer(new Teleport() { ObjectId = (int)player, Name = _main.Client.Name });
+                                await Task.Delay(1000);
+                                JazzRelay.Form.PressKey(exalt.Panel, Settings.Default.InteractHotkey);
+                                JazzRelay.Form.FocusPanel(_main.Panel);
+                            });
+                        }
+                    }
+                    await Task.Delay(1000);
+                }
+
+            }
         }
 
         public async Task HookReconnect(Client client, Reconnect packet)
@@ -221,9 +260,9 @@ namespace JazzRelay.Plugins
             }
         }
 
-        public void LoadAccounts(List<(string, string)> logins)
+        public void HookUpdate(Client client, Update packet)
         {
-            //string loginArgs = string.Format("data:{platform:Deca,guid:anVzdGlubXVsdGlib3hAaG90bWFpbC5jb20=,token:bGZqSnI4NnpTNnB4Tmd0QkxvWXpueW5ReUlzWE01UlJmbFdGZnRYUHdRZCtnbmxXeklVMXZDOTRTRE5TSDgrMTMydjNwVUI5Sk5sMVZ2TmZiS2txM0R4V3dMZG9yeEFRVUhrNFJyTU5OU2MxeTNDL0dheERHTnNUREg3STVHTDNOTkp3MnFsNUFweklvOTk0RVlvY2p3WkliZ3YwQW9iOTVpVVlsQXV1SHl3Q05xV0lrYjNYSlloRU5KakhuR2lucCtha1YyWUVkVzI0c3pwZDF6Q1JtZ2RUSU1QN01Ka2xROEp0cFlwc2UvMWZ4TEk1c2xZNS8wSjk0TThZMDR1clM4ME1OQWlxbC94cDhzUVVXYnJxQlpHQnEzK29rUi9weTYvL0h1eDBEY3ZvRXZmV2I3V2hJb2x2dHIwL2dDZmU1akd1VVEyUnlJUzJmK0pqNHp1YnVBPT0=,tokenTimestamp:MTY2OTE3OTk3Mw==,tokenExpiration:ODY0MDA=,env:4}")
+
         }
     }
 }

@@ -29,7 +29,10 @@ namespace JazzRelay.Extensions
             { typeof(float), (pr, f) => pr.ReadSingle() },
             { typeof(byte), (pr, f) => pr.ReadByte() },
             { typeof(StatData), (pr, f) => new StatData(pr) },
-            { typeof(MoveRecord[]), (pr, f) => pr.ReadArray<MoveRecord>(f) }
+            { typeof(MoveRecord[]), (pr, f) => pr.ReadArray<MoveRecord>(f) },
+            { typeof(Tile[]), (pr, f) => pr.ReadArray<Tile>(f) },
+            { typeof(Entity[]), (pr, f) => pr.ReadArray<Entity>(f) },
+            { typeof(int[]), (pr, f) => { int length = pr.ReadCompressed(); var result = new int[length]; for (int i = 0; i < length; i++) result[i] = pr.ReadCompressed(); return result; } }
         };
 
         private static Dictionary<Type, Action<PacketWriter, object, FieldInfo>> _writeTypes = new Dictionary<Type, Action<PacketWriter, object, FieldInfo>>
@@ -47,7 +50,10 @@ namespace JazzRelay.Extensions
             { typeof(float), (pw, v, f) => pw.Write((float)v) },
             { typeof(byte), (pw, v, f) => pw.Write((byte)v) },
             { typeof(StatData), (pw, v, f) => ((StatData)v).Write(pw) },
-            { typeof(MoveRecord[]), (pw, v, f) => pw.Write((MoveRecord[])v, f) }
+            { typeof(MoveRecord[]), (pw, v, f) => pw.Write((MoveRecord[])v, f) },
+            { typeof(Tile[]), (pw, v, f) => pw.Write((Tile[])v, f) },
+            { typeof(Entity[]), (pw, v, f) => pw.Write((Entity[])v, f) },
+            { typeof(int[]), (pw, v, f) => { pw.WriteCompressed(((int[])v).Length); foreach (var value in (int[])v) pw.WriteCompressed(value); } }
         };
 
         public static void SetFromReader(this FieldInfo field, object obj, PacketReader reader)

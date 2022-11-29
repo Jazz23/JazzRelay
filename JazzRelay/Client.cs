@@ -30,6 +30,9 @@ namespace JazzRelay
         public WorldPosData Position { get; set; }
         public string AccessToken { get; set; }
         public bool Connected { get; set; }
+        public Entity Self { get; set; }
+        public string Name { get; private set; }
+        public Dictionary<int, Entity> Entities { get; set; } = new();
 
         JazzRelay _proxy;
         TcpClient _client;
@@ -291,6 +294,22 @@ namespace JazzRelay
             {
                 packet.Send = false;
                 client.Escape();
+            }
+
+            public void HookUpdate(Client client, Update packet)
+            {
+                foreach (var entity in packet.Entities) //I'm not doing newtick update crap unless I have to
+                {
+                    if (entity.Stats.objectId == client.ObjectId)
+                    {
+                        client.Self = entity;
+                        client.Name = entity.Stats.stats.First(x => x.statType == (byte)StatDataType.Name).stringValue;
+                    }
+                    client.Entities[entity.Stats.objectId] = entity;
+                }
+
+                foreach (var drop in packet.Drops)
+                    client.Entities.Remove(drop);
             }
 
             public async Task HookReconnect(Client client, Reconnect packet)

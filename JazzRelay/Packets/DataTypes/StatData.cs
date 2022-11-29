@@ -1,5 +1,6 @@
 ﻿#pragma warning disable 8618
 
+using JazzRelay.Enums;
 using JazzRelay.Packets.Utils;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets.DataTypes
 {
-    internal class StatData : IDataType
+    public class StatData : IDataType
     {
         public byte magicNumber;
         public byte statType;

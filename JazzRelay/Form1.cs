@@ -71,12 +71,17 @@ namespace JazzRelay
         {
             foreach (var panel in Panels)
             {
-                if (panel.ExaltHandle != default)
-                {
-                    SetForegroundWindow(panel.ExaltHandle);
-                    SendKeys.SendWait(key);
-                    SendKeys.Flush();
-                }
+                PressKey(panel, key);
+            }
+        }
+
+        public void PressKey(MultiPanel panel, string key)
+        {
+            if (panel.ExaltHandle != default)
+            {
+                SetForegroundWindow(panel.ExaltHandle);
+                SendKeys.SendWait(key);
+                SendKeys.Flush();
             }
         }
 
@@ -163,5 +168,7 @@ namespace JazzRelay
         {
 
         }
+
+        public void FocusPanel(MultiPanel panel) => SetForegroundWindow(panel.ExaltHandle);
     }
 }

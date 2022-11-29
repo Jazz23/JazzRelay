@@ -68,10 +68,8 @@ namespace JazzRelay
 
         public async Task StartRelay()
         {
-            Settings.Default.InteractHotkey = " ";
-            Properties.Settings.Default.Save();
-            if (!HWIDLock.IsMike())
-                return;
+            //if (!HWIDLock.IsMike())
+            //    return;
             try
             {
                 AllocConsole();
@@ -164,7 +162,7 @@ namespace JazzRelay
         void InitPlugins()
         {
             IEnumerable<Type> plugins = Assembly.GetAssembly(typeof(IPlugin))?.GetTypes()?.Where(x => 
-            typeof(IPlugin).IsAssignableFrom(x) && x != typeof(IPlugin) && Attribute.IsDefined(x, typeof(PluginEnabled))) ??
+            typeof(IPlugin).IsAssignableFrom(x) && x != typeof(IPlugin) && !Attribute.IsDefined(x, typeof(PluginDisabled))) ??
                 throw new Exception("Error reading plugin types!");
 
             foreach (var plugin in plugins)

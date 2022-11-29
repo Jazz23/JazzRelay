@@ -1,4 +1,6 @@
-﻿using JazzRelay.Packets;
+﻿using JazzRelay.Enums;
+using JazzRelay.Packets;
+using JazzRelay.Packets.DataTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,5 +21,9 @@ namespace JazzRelay.Plugins.Utils
                 Color = 65535
             });
         }
+
+        public static string? Name(this ObjectStatusData stats) => stats.stats.FirstOrDefault(x => x.statType == (byte)StatDataType.Name)?.stringValue;
+
+        public static int? FindPlayer(this Client client, string name) => client.Entities.Values.FirstOrDefault(x => x.Stats.Name() == name)?.Stats.objectId;
     }
 }

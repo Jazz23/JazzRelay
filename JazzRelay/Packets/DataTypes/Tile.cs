@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets.DataTypes
 {
-    internal class Entity : IDataType
+    internal class Tile : IDataType
     {
         public short X;
         public short Y;

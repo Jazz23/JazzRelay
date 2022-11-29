@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets.DataTypes
 {
-    internal class ObjectStatusData : IDataType
+    public class ObjectStatusData : IDataType
     {
         public int objectId;
         public WorldPosData position;
