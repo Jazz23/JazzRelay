@@ -90,20 +90,35 @@ namespace JazzRelay
 
         async Task<byte[]?> ProcessPacket(NetworkStream stream, RC4 cipher, bool isExalt)
         {
+            bool idk = stream.Socket.Connected;
             byte[] headers = new byte[5];
-            if (!(await stream.ReceiveAll(headers))) return null;
-            byte[] data = new byte[headers.ToInt32() - 5];
-            if (!(await stream.ReceiveAll(data))) return null;
-            if (data == null) return null;
+            bool broken = false;
+            try
+            {
+                if (!(await stream.ReceiveAll(headers))) throw new Exception("Error recieving headers");
+                byte[] data = new byte[headers.ToInt32() - 5];
+                if (!(await stream.ReceiveAll(data))) throw new Exception("Error recieving data");
+                if (data == null) broken = true;
 
-            cipher.Cipher(data, 0);
-            PacketType packetType = (PacketType)headers[4];
-            WeGot(packetType);
-            var resultData = headers.Concat(data).ToArray();
-            if (_proxy.HasHook(packetType))
-                resultData = await HandlePacket(packetType, resultData, isExalt);
+                if (broken)
+                {
+                    Console.WriteLine((PacketType)headers[4]);
+                    return null;
+                }
 
-            return resultData;
+                cipher.Cipher(data, 0);
+                PacketType packetType = (PacketType)headers[4];
+                WeGot(packetType);
+                var resultData = headers.Concat(data).ToArray();
+                if (_proxy.HasHook(packetType))
+                    resultData = await HandlePacket(packetType, resultData, isExalt);
+
+                return resultData;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
         }
 
         async Task<byte[]> HandlePacket(PacketType packet, byte[] totalData, bool isExalt)
@@ -244,14 +259,14 @@ namespace JazzRelay
             {
                 client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect()
                 {
-                    _7emhxUTdr13gnLDpxCDdUT3o2De = packet._7emhxUTdr13gnLDpxCDdUT3o2De,
+                    GameId = packet.GameId,
                     host = packet.host == "" ? client.ConnectionInfo.Reconnect.host : packet.host,
                     Port = packet.Port == 0 ? client.ConnectionInfo.Reconnect.Port : packet.Port,
                     Key = packet.Key.ToArray(),
                     KeyTime = packet.KeyTime
                 });
                 packet.host = "127.0.0.1";
-                packet.Port = JazzRelay.Port/* + Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent()?.User?.Value != "S-1-5-21-1853899583-3507715880-2321727073-1001")*/;
+                packet.Port = Constants.Port/* + Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent()?.User?.Value != "S-1-5-21-1853899583-3507715880-2321727073-1001")*/;
                 await client.SendToClient(packet);
                 client.Dispose();
             }
@@ -279,6 +294,38 @@ namespace JazzRelay
                         client.Position = status.position;
                         return;
                     }
+                }
+            }
+
+            public async Task HookPlayerText(Client client, PlayerText packet)
+            {
+                if (packet.Text.StartsWith("con"))
+                {
+                    packet.Send = false;
+                    string data = packet.Text.ToLower().Remove(0, 4);
+                    string name = data.Substring(0, 3);
+                    int num;
+                    bool hasNum = int.TryParse(data.Last().ToString(), out num);
+                    Server? server = JazzRelay.Servers.FirstOrDefault(x => x.Name.ToLower().StartsWith(name) && (!hasNum || x.Name.ToLower().Last().ToString() == num.ToString()));
+                    if (server != null)
+                    {
+                        client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect() { host = server.DNS, Port = 2050 });
+                        await client.SendToClient(new Reconnect()
+                        { 
+                            host = "127.0.0.1",
+                            Port = Constants.Port,
+                            Key = new byte[0],
+                            KeyTime = -1,
+                            GameId = -2,
+                            MapName = "{\"t\":\"s.nexus\"}"
+                        });
+                        client.Dispose();
+                    }
+                }
+                else if (packet.Text == "server")
+                {
+                    packet.Send = false;
+                    Console.WriteLine(client.ConnectionInfo.Reconnect.host);
                 }
             }
         }

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Plugins
 {
-    [PluginDisabled]
+    [PluginEnabled]
     internal class MovementRecorder : IPlugin
     {
         string[] _commands = new string[] { "start", "stop", "play", "set" };
@@ -37,8 +37,8 @@ namespace JazzRelay.Plugins
             }
             else if  (packet.Text == "set")
             {
-                if (!client.States.ContainsKey("exalt"))
-                    client.States["exalt"] = new Exalt(client);
+                //if (!client.States.ContainsKey("exalt"))
+                //    client.States["exalt"] = new Exalt(client);
             }
         }
 

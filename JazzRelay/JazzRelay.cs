@@ -23,6 +23,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Xml.Serialization;
 using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay
@@ -35,14 +36,13 @@ namespace JazzRelay
         [DllImport("kernel32.dll")]
         internal static extern Boolean AllocConsole();
 
-        public static int Port { get; set; } = 2051;
         public List<(IPlugin, MethodInfo)> GetHooks(PacketType pt) => _hooks[pt];
         public bool HasHook(PacketType pt) => _hooks.ContainsKey(pt);
         public ObjectList GetPersistantObjects(string accessToken)
         {
             ObjectList? temp;
             if (!_persistantObjects.TryGetValue(accessToken, out temp))
-                _persistantObjects.Add(accessToken, temp = new() { { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = "52.87.248.5", Port = 2050 }) } });
+                _persistantObjects.Add(accessToken, temp = new() { { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = "54.235.235.140", Port = 2050 }) } });
             return temp;
         }
         public Dictionary<PacketType, Type> PacketTypes => _packetTypes;
@@ -53,6 +53,7 @@ namespace JazzRelay
         public bool Listen = true;
         public static Form1 Form { get; set; } = new();
         public List<Client> Clients { get; set; } = new();
+        public static List<Server> Servers = new();
 
         Dictionary<PacketType, Type> _packetTypes = new();
         Dictionary<Type, FieldInfo[]> _packetFields = new();
@@ -66,14 +67,14 @@ namespace JazzRelay
             try
             {
                 AllocConsole();
-                //_ = Task.Run(() =>
-                //{
-                //    Application.EnableVisualStyles();
-                //    Application.Run(Form);
-                //});
+                _ = Task.Run(() =>
+                {
+                    Application.EnableVisualStyles();
+                    Application.Run(Form);
+                });
+                InitServerList();
                 InitPlugins();
                 InitPacketTypes();
-                await TCPListen();
                 _ = Task.Run(LoadProxies);
                 _ = Task.Run(TCPListen);
                 await Task.Delay(-1);
@@ -82,6 +83,15 @@ namespace JazzRelay
             {
                 Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace);
             }
+        }
+
+        private void InitServerList()
+        {
+            var serializer = new XmlSerializer(typeof(Servers));
+            FileStream stream = File.OpenRead("servers.xml");
+            var temp = serializer.Deserialize(stream) ?? throw new Exception("Error parsing servers!");
+            Servers = ((Servers)temp).ServerList.ToList();
+            stream.Close();
         }
 
         void InitPacketTypes()
@@ -142,7 +152,7 @@ namespace JazzRelay
 
         async Task TCPListen()
         {
-            TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), Port); //gg
+            TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), Constants.Port);
             server.Start();
 
             await Task.Delay(500); //Idk why I think this delay is necessary
