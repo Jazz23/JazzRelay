@@ -40,6 +40,8 @@ namespace JazzRelay.Packets.DataTypes
             return b != null && X == b.X && Y == b.Y;
         }
 
+        public float DistanceTo(WorldPosData pos) => (float)Math.Sqrt((X - pos.X) * (X - pos.X) + (Y - pos.Y) * (Y - pos.Y));
+
         public override string ToString() => $"x: {X}, y: {Y}";
     }
 }

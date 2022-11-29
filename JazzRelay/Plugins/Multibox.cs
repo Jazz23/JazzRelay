@@ -36,7 +36,7 @@ namespace JazzRelay.Plugins
                     for (int i = 0; i < _exalts.Count; i++)
                     {
                         var bot = _exalts[i];
-                        if (bot != _main && bot.Active/* && bot.Client.Connected*/)
+                        if (bot != _main && bot.Active && bot.Client.ConnectionInfo.Reconnect.host == _main.Client.ConnectionInfo.Reconnect.host/* && bot.Client.Connected*/)
                         {
                             bot.WriteX(_main.X);
                             bot.WriteY(_main.Y1, _main.Y2);
@@ -47,6 +47,10 @@ namespace JazzRelay.Plugins
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
+
+        bool IsTogether(Client client1, Client client2) =>
+            client1.ConnectionInfo.Reconnect.host == client2.ConnectionInfo.Reconnect.host && client1.ConnectionInfo.Reconnect.GameId
+                == client2.ConnectionInfo.Reconnect.GameId;
 
         //Returns false if accoutn already existed
         public bool AddAccount(Client client, out Exalt exalt)
@@ -115,6 +119,30 @@ namespace JazzRelay.Plugins
         public void HookUsePortal(Client client, UsePortal packet)
         {
 
+        }
+
+        public async Task HookReconnect(Client client, Reconnect packet)
+        {
+            if (packet.GameId == 0 && _main?.Client == client)
+            {
+                foreach (var exalt in _exalts)
+                {
+                    if (exalt.Client != client)
+                    {
+                        await exalt.Client.ConnectTo(packet.host, 2050, -2, "Realm", new byte[0], -1);
+                    }
+                }
+
+            }
+        }
+
+        public void HookEscape(Client client, Escape packet)
+        {
+            if (_main?.Client == client && _syncing)
+            {
+                foreach (var exalt in _exalts)
+                    if (exalt.Client != client) exalt.Client.Escape();
+            }
         }
 
         public void LoadAccounts(List<(string, string)> logins)

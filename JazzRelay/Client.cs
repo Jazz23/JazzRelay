@@ -20,7 +20,7 @@ namespace JazzRelay
 {
     public class Client
     {
-        public ConnectInfo ConnectionInfo
+        public ConnectInfo ConnectionInfo //Persitant connection information loaded on hello and before server connect
         {
             get => (ConnectInfo)States["ConnectionInfo"];
             set => States["ConnectionInfo"] = value;
@@ -87,6 +87,12 @@ namespace JazzRelay
                 cipher.Cipher(data, 5);
                 await stream.WriteAsync(data, 0, data.Length);
             }
+        }
+
+        public void Escape()
+        {
+            Server server = (Server)States["defaultServer"];
+            Task.Run(async () => await ConnectTo(server.DNS, 2050, -2, "Nexus", new byte[0], -1));
         }
 
         async Task<byte[]?> ProcessPacket(NetworkStream stream, RC4 cipher, bool isExalt)
@@ -253,30 +259,44 @@ namespace JazzRelay
             _proxy.Clients.Remove(this);
         }
 
+        public async Task ConnectTo(string host, int port, int gameId, string mapName, byte[] key, int keyTime)
+        {
+            ConnectionInfo = new ConnectInfo(_socks5, new Reconnect()
+            {
+                host = host,
+                Port = port,
+                GameId = gameId,
+                MapName = mapName,
+                Key = key,
+                KeyTime = keyTime
+            });
+
+            await SendToClient(new Reconnect()
+            {
+                host = "127.0.0.1",
+                Port = Constants.Port,
+                Key = key,
+                KeyTime = keyTime,
+                GameId = gameId,
+                MapName = mapName
+            });
+            Dispose();
+        }
+
         [PluginEnabled]
         internal class RelayEssentials : IPlugin
         {
             public void HookEscape(Client client, Escape packet)
             {
-                Server server = (Server)client.States["defaultServer"];
-                client.ConnectionInfo.Reconnect.host = server.DNS;
-                client.ConnectionInfo.Reconnect.Port = 2050;
+                packet.Send = false;
+                client.Escape();
             }
 
-            public async void HookReconnect(Client client, Reconnect packet)
+            public async Task HookReconnect(Client client, Reconnect packet)
             {
-                client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect()
-                {
-                    GameId = packet.GameId,
-                    host = packet.host == "" ? client.ConnectionInfo.Reconnect.host : packet.host,
-                    Port = packet.Port == 0 ? client.ConnectionInfo.Reconnect.Port : packet.Port,
-                    Key = packet.Key.ToArray(),
-                    KeyTime = packet.KeyTime
-                });
-                packet.host = "127.0.0.1";
-                packet.Port = Constants.Port/* + Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent()?.User?.Value != "S-1-5-21-1853899583-3507715880-2321727073-1001")*/;
-                await client.SendToClient(packet);
-                client.Dispose();
+                string host = packet.host == "" ? client.ConnectionInfo.Reconnect.host : packet.host;
+                int port = packet.Port == 0 ? client.ConnectionInfo.Reconnect.Port : packet.Port;
+                await client.ConnectTo(host, port, packet.GameId, packet.MapName, packet.Key, packet.KeyTime);
             }
 
             //I'm choosing no persistance between Exalt restarts/accesstokens. I don't want to wait until update.
@@ -284,11 +304,6 @@ namespace JazzRelay
             {
                 client.SetPersistantObjects(packet.AccessToken);
                 client.AccessToken = packet.AccessToken;
-                if (packet.Key == null && packet.GameId != -2)
-                {
-                    packet.Key = client.ConnectionInfo.Reconnect.Key;
-                    packet.KeyTime = client.ConnectionInfo.Reconnect.KeyTime;
-                }
             }
 
             public void HookCreateSuccess(Client client, CreateSuccess packet) => client.ObjectId = packet.objectId;
@@ -305,7 +320,7 @@ namespace JazzRelay
                 }
             }
 
-            public async Task HookPlayerText(Client client, PlayerText packet)
+            public void HookPlayerText(Client client, PlayerText packet)
             {
                 if (packet.Text.StartsWith("con"))
                 {
@@ -318,17 +333,7 @@ namespace JazzRelay
                         client._proxy.DefaultServer = server;
                         Settings.Default.DefaultServer = server.Name;
                         Settings.Default.Save();
-                        client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect() { host = server.DNS, Port = 2050 });
-                        await client.SendToClient(new Reconnect()
-                        { 
-                            host = "127.0.0.1",
-                            Port = Constants.Port,
-                            Key = new byte[0],
-                            KeyTime = -1,
-                            GameId = -2,
-                            MapName = "{\"t\":\"s.nexus\"}"
-                        });
-                        client.Dispose();
+                        client.Escape();
                     }
                 }
                 else if (packet.Text == "server")
