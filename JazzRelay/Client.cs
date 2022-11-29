@@ -316,7 +316,7 @@ namespace JazzRelay
                     {
                         client.States["defaultServer"] = server;
                         client._proxy.DefaultServer = server;
-                        Settings.Default.DefaultServer = server.DNS;
+                        Settings.Default.DefaultServer = server.Name;
                         Settings.Default.Save();
                         client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect() { host = server.DNS, Port = 2050 });
                         await client.SendToClient(new Reconnect()
