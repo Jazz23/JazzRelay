@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JazzRelay.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -64,6 +65,19 @@ namespace JazzRelay
         {
             CheckForIllegalCrossThreadCalls = false; //Bite me
             //DockExistingExalts();
+        }
+
+        public void PressGlobalKey(string key)
+        {
+            foreach (var panel in Panels)
+            {
+                if (panel.ExaltHandle != default)
+                {
+                    SetForegroundWindow(panel.ExaltHandle);
+                    SendKeys.SendWait(key);
+                    SendKeys.Flush();
+                }
+            }
         }
 
         public void SetPanel(MultiPanel mpanel, Panel panel)

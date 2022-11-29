@@ -68,10 +68,10 @@ namespace JazzRelay
 
         public async Task StartRelay()
         {
-            string test = AbbreviatedName("USWest4");
-            string test2 = AbbreviatedName("AsiaEast");
-            //if (!HWIDLock.IsMike())
-            //    return;
+            Settings.Default.InteractHotkey = " ";
+            Properties.Settings.Default.Save();
+            if (!HWIDLock.IsMike())
+                return;
             try
             {
                 AllocConsole();
@@ -127,6 +127,7 @@ namespace JazzRelay
             }
             return null;
         }
+        public Server? FindServerByHost(string host) => Servers.FirstOrDefault(x => x.DNS == host);
 
         void InitPacketTypes()
         {

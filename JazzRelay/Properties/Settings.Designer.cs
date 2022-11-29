@@ -34,5 +34,17 @@ namespace JazzRelay.Properties {
                 this["DefaultServer"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("F")]
+        public string InteractHotkey {
+            get {
+                return ((string)(this["InteractHotkey"]));
+            }
+            set {
+                this["InteractHotkey"] = value;
+            }
+        }
     }
 }

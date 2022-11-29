@@ -200,6 +200,7 @@ namespace JazzRelay
         {
             //Process first hello to recover persistant variables
             var hello = await ProcessPacket(client.GetStream(), _clientRecieveState, true) ?? throw new Exception("Error reading first hello!");
+            await Task.Delay(500); //idfk maybe this helps dc
 
             _socks5 = ConnectionInfo.Proxy;
             Socks5ProxyClient proxyClient = new Socks5ProxyClient(_socks5.Ip, _socks5.Port, _socks5.Username, _socks5.Password);
@@ -274,7 +275,7 @@ namespace JazzRelay
             await SendToClient(new Reconnect()
             {
                 host = "127.0.0.1",
-                Port = Constants.Port,
+                Port = Constants.Port + Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent().User.Value == "S-1-5-21-1853899583-3507715880-2321727073-1001"),
                 Key = key,
                 KeyTime = keyTime,
                 GameId = gameId,
@@ -304,6 +305,9 @@ namespace JazzRelay
             {
                 client.SetPersistantObjects(packet.AccessToken);
                 client.AccessToken = packet.AccessToken;
+
+                if (packet.GameId == -2 && client._proxy.FindServerByHost(client.ConnectionInfo.Reconnect.host) == null)
+                    client.ConnectionInfo.Reconnect.GameId = 0;
             }
 
             public void HookCreateSuccess(Client client, CreateSuccess packet) => client.ObjectId = packet.objectId;
