@@ -18,5 +18,6 @@ namespace JazzRelay.DataTypes
         public string Name;
         public string DNS;
         public float Usage;
+        public string AbbreviatedName;
     }
 }

@@ -5,6 +5,7 @@ using JazzRelay.Packets;
 using JazzRelay.Packets.DataTypes;
 using JazzRelay.Packets.Utils;
 using JazzRelay.Plugins.Utils;
+using JazzRelay.Properties;
 using Starksoft.Aspen.Proxy;
 using System;
 using System.Collections.Generic;
@@ -255,6 +256,13 @@ namespace JazzRelay
         [PluginEnabled]
         internal class RelayEssentials : IPlugin
         {
+            public void HookEscape(Client client, Escape packet)
+            {
+                Server server = (Server)client.States["defaultServer"];
+                client.ConnectionInfo.Reconnect.host = server.DNS;
+                client.ConnectionInfo.Reconnect.Port = 2050;
+            }
+
             public async void HookReconnect(Client client, Reconnect packet)
             {
                 client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect()
@@ -302,13 +310,14 @@ namespace JazzRelay
                 if (packet.Text.StartsWith("con"))
                 {
                     packet.Send = false;
-                    string data = packet.Text.ToLower().Remove(0, 4);
-                    string name = data.Substring(0, 3);
-                    int num;
-                    bool hasNum = int.TryParse(data.Last().ToString(), out num);
-                    Server? server = JazzRelay.Servers.FirstOrDefault(x => x.Name.ToLower().StartsWith(name) && (!hasNum || x.Name.ToLower().Last().ToString() == num.ToString()));
+                    string name = packet.Text.ToLower().Remove(0, 4);
+                    Server? server = client._proxy.FindServer(name);
                     if (server != null)
                     {
+                        client.States["defaultServer"] = server;
+                        client._proxy.DefaultServer = server;
+                        Settings.Default.DefaultServer = server.DNS;
+                        Settings.Default.Save();
                         client.ConnectionInfo = new ConnectInfo(client._socks5, new Reconnect() { host = server.DNS, Port = 2050 });
                         await client.SendToClient(new Reconnect()
                         { 

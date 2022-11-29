@@ -16,6 +16,7 @@ using JazzRelay.Packets.DataTypes;
 using JazzRelay.Packets.Utils;
 using JazzRelay.Plugins;
 using JazzRelay.Plugins.Utils;
+using JazzRelay.Properties;
 using Starksoft.Aspen.Proxy;
 using System.Collections;
 using System.Net;
@@ -38,11 +39,16 @@ namespace JazzRelay
 
         public List<(IPlugin, MethodInfo)> GetHooks(PacketType pt) => _hooks[pt];
         public bool HasHook(PacketType pt) => _hooks.ContainsKey(pt);
+        public Server DefaultServer { get; set; } = new Server() { DNS = "54.235.235.140", Name = "USWest4" };
         public ObjectList GetPersistantObjects(string accessToken)
         {
             ObjectList? temp;
             if (!_persistantObjects.TryGetValue(accessToken, out temp))
-                _persistantObjects.Add(accessToken, temp = new() { { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = "54.235.235.140", Port = 2050 }) } });
+                _persistantObjects.Add(accessToken, temp = new()
+                {
+                    { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = DefaultServer.DNS, Port = 2050 }) },
+                    { "defaultServer", DefaultServer}
+                });
             return temp;
         }
         public Dictionary<PacketType, Type> PacketTypes => _packetTypes;
@@ -62,6 +68,8 @@ namespace JazzRelay
 
         public async Task StartRelay()
         {
+            string test = AbbreviatedName("USWest4");
+            string test2 = AbbreviatedName("AsiaEast");
             //if (!HWIDLock.IsMike())
             //    return;
             try
@@ -92,6 +100,32 @@ namespace JazzRelay
             var temp = serializer.Deserialize(stream) ?? throw new Exception("Error parsing servers!");
             Servers = ((Servers)temp).ServerList.ToList();
             stream.Close();
+
+            foreach (var server in Servers) server.AbbreviatedName = AbbreviatedName(server.Name);
+
+            var defaultServer = Servers.FirstOrDefault(x => x.Name == Settings.Default.DefaultServer);
+            if (defaultServer != null)
+                DefaultServer = defaultServer;
+        }
+
+        string AbbreviatedName(string serverName)
+        {
+            string result = string.Concat(serverName.Where(x => Char.IsUpper(x))).ToLower();
+            int num;
+            if (int.TryParse(serverName.Last().ToString(), out num))
+            {
+                return result + num.ToString();
+            }
+            return result;
+        }
+
+        public Server? FindServer(string name)
+        {
+            foreach (var server in Servers)
+            {
+                if (server.Name == name || server.AbbreviatedName == name) return server;
+            }
+            return null;
         }
 
         void InitPacketTypes()
