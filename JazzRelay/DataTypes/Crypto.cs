@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace JazzRelay
+namespace JazzRelay.DataTypes
 {
     public class RC4
     {

@@ -14,16 +14,16 @@ namespace JazzRelay.Packets
 		public string _a3JBFAwEMD87YdkFnnNzpbeqSxG;
 
 		// Token: 0x040005D4 RID: 1492
-		public int _JkFdhFJGz9v1U0JwBAbX0zBan3BA;
+		public int GameId;
 
 		// Token: 0x040005D5 RID: 1493
 		public string AccessToken;
 
 		// Token: 0x040005D6 RID: 1494
-		public int _nMh2MLrfctT4GSOA6vkVDXwvYPE;
+		public int KeyTime;
 
 		// Token: 0x040005D7 RID: 1495
-		public byte[] _5Zau8NW95l3DTTyrUFPuq16Edhx;
+		public byte[] Key;
 
 		// Token: 0x040005D8 RID: 1496
 		public string _pbdQUsWb1XXOesc95la4ciruhKF;

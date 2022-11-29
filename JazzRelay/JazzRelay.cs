@@ -8,6 +8,7 @@
  * persistant client states.
  */
 
+using JazzRelay.DataTypes;
 using JazzRelay.Enums;
 using JazzRelay.Extensions;
 using JazzRelay.Packets;
@@ -22,6 +23,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Xml.Serialization;
 using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay
@@ -31,33 +33,37 @@ namespace JazzRelay
     {
         static async Task Main(string[] args) => await new JazzRelay().StartRelay();
 
-        Dictionary<PacketType, List<(IPlugin, MethodInfo)>> _hooks = new(); //Key: Byte. Value: Plugin Instance & Function (hook)
+        [DllImport("kernel32.dll")]
+        internal static extern Boolean AllocConsole();
+
         public List<(IPlugin, MethodInfo)> GetHooks(PacketType pt) => _hooks[pt];
         public bool HasHook(PacketType pt) => _hooks.ContainsKey(pt);
         public ObjectList GetPersistantObjects(string accessToken)
         {
             ObjectList? temp;
             if (!_persistantObjects.TryGetValue(accessToken, out temp))
-                _persistantObjects.Add(accessToken, temp = new());
+                _persistantObjects.Add(accessToken, temp = new() { { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = "54.235.235.140", Port = 2050 }) } });
             return temp;
         }
-        Dictionary<PacketType, Type> _packetTypes = new();
         public Dictionary<PacketType, Type> PacketTypes => _packetTypes;
-        Dictionary<Type, FieldInfo[]> _packetFields = new();
-        Dictionary<string, ObjectList> _persistantObjects = new();
         public FieldInfo[] GetFields(Type packetType) => _packetFields[packetType]; //I want to throw an error here
         readonly List<Proxy> _frontProxies = new List<Proxy>();
         int _frontProxiesIndex = 0;
         public Proxy FrontProxy => _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
         public bool Listen = true;
-        [DllImport("kernel32.dll")]
-        internal static extern Boolean AllocConsole();
         public static Form1 Form { get; set; } = new();
+        public List<Client> Clients { get; set; } = new();
+        public static List<Server> Servers = new();
+
+        Dictionary<PacketType, Type> _packetTypes = new();
+        Dictionary<Type, FieldInfo[]> _packetFields = new();
+        Dictionary<string, ObjectList> _persistantObjects = new();
+        Dictionary<PacketType, List<(IPlugin, MethodInfo)>> _hooks = new(); //Key: Byte. Value: Plugin Instance & Function (hook)
 
         public async Task StartRelay()
         {
-            if (!HWIDLock.IsMike())
-                return;
+            //if (!HWIDLock.IsMike())
+            //    return;
             try
             {
                 AllocConsole();
@@ -66,6 +72,7 @@ namespace JazzRelay
                     Application.EnableVisualStyles();
                     Application.Run(Form);
                 });
+                InitServerList();
                 InitPlugins();
                 InitPacketTypes();
                 _ = Task.Run(LoadProxies);
@@ -76,6 +83,15 @@ namespace JazzRelay
             {
                 Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace);
             }
+        }
+
+        private void InitServerList()
+        {
+            var serializer = new XmlSerializer(typeof(Servers));
+            FileStream stream = File.OpenRead("servers.xml");
+            var temp = serializer.Deserialize(stream) ?? throw new Exception("Error parsing servers!");
+            Servers = ((Servers)temp).ServerList.ToList();
+            stream.Close();
         }
 
         void InitPacketTypes()
@@ -136,21 +152,21 @@ namespace JazzRelay
 
         async Task TCPListen()
         {
-            TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), 2060);
+            TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), Constants.Port);
             server.Start();
 
-            await Task.Delay(500);
+            await Task.Delay(500); //Idk why I think this delay is necessary
             while (Listen)
             {
-                GC.Collect();
                 Console.WriteLine("Started Listening");
                 TcpClient client = await server.AcceptTcpClientAsync();
                 Console.WriteLine("Received TCP connection from multitool");
+                await Task.Delay(500);
                 StartClient(client);
             }
         }
 
-        void StartClient(TcpClient client) => new Client(this, client); //We *want* our client instances to get collected to avoid memory leaks
+        void StartClient(TcpClient client) => Clients.Add(new Client(this, client)); //We *want* our client instances to get collected to avoid memory leaks
 
         async Task LoadProxies()
         {

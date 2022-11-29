@@ -37,8 +37,8 @@ namespace JazzRelay.Plugins
             }
             else if  (packet.Text == "set")
             {
-                if (!client.States.ContainsKey("exalt"))
-                    client.States["exalt"] = new Exalt(client);
+                //if (!client.States.ContainsKey("exalt"))
+                //    client.States["exalt"] = new Exalt(client);
             }
         }
 

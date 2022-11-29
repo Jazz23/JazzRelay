@@ -22,9 +22,22 @@ namespace JazzRelay
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hwnd, int nCmdShow);
-        public Dictionary<Panel, MultiPanel> Panels { get; set; } = new(); //Last panel is main panel
+
+        [DllImport("user32.dll")]
+        static extern int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
+
+        [DllImport("user32.dll")]
+        internal static extern IntPtr SetForegroundWindow(IntPtr hWnd);
+        const int GWL_STYLE = (-16);
+        const UInt32 WS_VISIBLE = 0x10000000;
+        private const int SW_SHOWNORMAL = 1;
+        private const int SW_SHOWMINIMIZED = 2;
+        private const int SW_SHOWMAXIMIZED = 3;
+
         Dictionary<Panel, (float, float)> _sizeMap = new();
         Dictionary<Panel, (float, float)> _locMap = new();
+        public List<MultiPanel> Panels { get; set; } = new(); //Last panel is main panel
+        public MultiPanel MainPanel { get => Panels.Last(); }
 
         public Form1()
         {
@@ -42,7 +55,7 @@ namespace JazzRelay
                     _sizeMap.Add(panel, ((float)panel.Width / ClientSize.Width, (float)panel.Height / ClientSize.Height));
                     _locMap.Add(panel, ((float)panel.Location.X / ClientSize.Width, (float)panel.Location.Y / ClientSize.Height));
 
-                    Panels.Add(panel, new MultiPanel());
+                    Panels.Add(new MultiPanel(panel));
                 }
             }
         }
@@ -53,36 +66,52 @@ namespace JazzRelay
             //DockExistingExalts();
         }
 
-        public void SetPanel(Panel panel, IntPtr handle)
+        public void SetPanel(MultiPanel mpanel, Panel panel)
         {
-            MultiPanel? mpanel;
-            if (!Panels.TryGetValue(panel, out mpanel)) return;
-            mpanel.ExaltHandle = handle;
-            mpanel.HasExalt = true;
-            ShowWindow(handle, 5);
-            mpanel.ParentHandle = SetParent(handle, panel.Handle);
-            MoveWindow(handle, -7, -31, panel.Width + 15, panel.Height + 39, true);
+            //ShowWindow(mpanel.ExaltHandle, 5);
+            var parent = SetParent(mpanel.ExaltHandle, panel.Handle);
+            if (mpanel.ParentHandle == default) mpanel.ParentHandle = parent;
+            MoveWindow(mpanel.ExaltHandle, -7, -31, panel.Width + 15, panel.Height + 39, true);
         }
 
-        void DockExistingExalts()
+        public MultiPanel GrabNewPanel() => Panels.FirstOrDefault(x => x.HasExalt == false) ?? Panels.First();
+
+        public void SwapPanels(MultiPanel panel1, MultiPanel panel2)
         {
-            var procs = Process.GetProcesses().Where(x => x.ProcessName.ToLower().Contains("exalt")).ToArray();
-            int length = Panels.Count() < procs.Count() ? Panels.Count() : procs.Count();
-            for (int i = 0; i < length; i++)
-            {
-                SetPanel(Panels.ElementAt(Panels.Count() - i-1).Key, procs[i].MainWindowHandle);
-            }
+            int index1 = Panels.IndexOf(panel1);
+            int index2 = Panels.IndexOf(panel2);
+            if (index1 == -1 || index2 == -1) throw new Exception("Error swapping panels!");
+            Panels[index1] = panel2;
+            Panels[index2] = panel1;
+            var temp1 = panel1.Panel;
+            panel1.Panel = panel2.Panel;
+            panel2.Panel = temp1;
+            SetPanel(panel1, panel1.Panel);
+            SetPanel(panel2, panel2.Panel);
         }
+
+        //void DockExistingExalts()
+        //{
+        //    var procs = Process.GetProcesses().Where(x => x.ProcessName.ToLower().Contains("exalt")).ToArray();
+        //    int length = Panels.Count() < procs.Count() ? Panels.Count() : procs.Count();
+        //    for (int i = 0; i < length; i++)
+        //    {
+        //        SetPanel(Panels.ElementAt(Panels.Count() - i-1).Key, procs[i].MainWindowHandle);
+        //    }
+        //}
+
+        MultiPanel FindMPanel(Panel panel) => Panels.First(x => x.Panel == panel);
 
         private void Panel_Resize(object sender, EventArgs e)
         {
-            IntPtr handle = Panels[(Panel)sender].ExaltHandle;
+            IntPtr handle = FindMPanel((Panel)sender).ExaltHandle;
             if (handle != default)
                 MoveWindow(handle, 0, 0, ((Panel)sender).Width, panel1.Height, true);
         }
 
         private void Form1_Resize(object sender, EventArgs e)
         {
+            if (WindowState == FormWindowState.Minimized) return;
             foreach (var panel in _sizeMap)
             {
                 panel.Key.Width = (int)(panel.Value.Item1 * ClientSize.Width);
@@ -94,11 +123,6 @@ namespace JazzRelay
             }
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            var meme = ClientSize;
-        }
-
         ~Form1() //idfk
         {
             DetachExalts();
@@ -107,7 +131,7 @@ namespace JazzRelay
         void DetachExalts()
         {
             int offset = 0;
-            foreach (var panel in Panels.Values)
+            foreach (var panel in Panels)
             {
                 if (panel.ParentHandle == default) continue;
                 SetParent(panel.ExaltHandle, panel.ParentHandle);
@@ -119,6 +143,11 @@ namespace JazzRelay
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             DetachExalts();
+        }
+
+        private void Form1_Enter(object sender, EventArgs e)
+        {
+
         }
     }
 }

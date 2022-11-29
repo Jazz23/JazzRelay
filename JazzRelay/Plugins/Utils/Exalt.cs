@@ -103,32 +103,39 @@ namespace JazzRelay.Plugins.Utils
             public ushort processorRevision;
         }
         #endregion
-        public string id;
-        public IntPtr Handle;
-        public IntPtr x1;
-        public IntPtr x2;
-        public IntPtr y1;
-        public IntPtr y2;
-        IntPtr filler;
+        IntPtr _handle;
+        IntPtr _x1;
+        IntPtr _x2;
+        IntPtr _y1;
+        IntPtr _y2;
+        IntPtr _filler;
+        public string Id { get; set; }
         public bool Active { get; set; }
+        public Client Client { get; set; }
+        public byte[] X { get; private set; } = new byte[4];
+        public byte[] Y1 { get; private set; } = new byte[4];
+        public byte[] Y2 { get; private set; } = new byte[4];
+        public MultiPanel Panel { get; private set; }
 
-        public Exalt(Client client, Panel? panel = null)
+        public Exalt(Client client, MultiPanel panel)
         {
-            id = client.AccessToken;
+            Client = client;
+            Id = client.AccessToken;
             Active = true;
+            Panel = panel;
             uint pid;
 
             if (panel != null)
             {
-                IntPtr handle = GetForegroundWindow();
-                JazzRelay.Form.SetPanel(panel, handle);
+                Panel.ExaltHandle = GetForegroundWindow();
+                JazzRelay.Form.SetPanel(Panel, panel.Panel);
             }
 
             GetWindowThreadProcessId(GetForegroundWindow(), out pid);
-            Handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
+            _handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
             false, pid);
 
-            SetAddresses(client);
+            SetAddresses();
         }
 
         public void ToggleActive() => Active = !Active; //TECHINCALLY this will sync even if all bots are inactive. Bite me
@@ -137,7 +144,7 @@ namespace JazzRelay.Plugins.Utils
         {
             float x;
             byte[] temp = new byte[4];
-            ReadProcessMemory(Handle, x1, temp, 4, out filler);
+            ReadProcessMemory(_handle, _x1, temp, 4, out _filler);
             x = BitConverter.ToSingle(temp, 0);
             if (x == 0) throw new Exception("Error reading memory!");
             return x;
@@ -146,41 +153,48 @@ namespace JazzRelay.Plugins.Utils
         {
             float y;
             byte[] temp = new byte[4];
-            ReadProcessMemory(Handle, y1, temp, 4, out filler);
+            ReadProcessMemory(_handle, _y1, temp, 4, out _filler);
             y = BitConverter.ToSingle(temp, 0);
             if (y == 0) throw new Exception("Error reading memory!");
             return y;
         }
 
+        public void UpdatePosition()
+        {
+            ReadProcessMemory(_handle, _x1, X, 4, out _filler);
+            ReadProcessMemory(_handle, _y1, Y1, 4, out _filler);
+            Y2 = BitConverter.GetBytes(BitConverter.ToSingle(Y1) * -1);
+        }
+
         public void WriteX(byte[] bytes)
         {
-            WriteProcessMemory(Handle, x1, bytes, 4, out filler);
-            WriteProcessMemory(Handle, x2, bytes, 4, out filler);
+            WriteProcessMemory(_handle, _x1, bytes, 4, out _filler);
+            WriteProcessMemory(_handle, _x2, bytes, 4, out _filler);
         }
         public void WriteY(byte[] bytes1, byte[] bytes2)
         {
-            WriteProcessMemory(Handle, y1, bytes1, 4, out filler);
-            WriteProcessMemory(Handle, y2, bytes2, 4, out filler);
+            WriteProcessMemory(_handle, _y1, bytes1, 4, out _filler);
+            WriteProcessMemory(_handle, _y2, bytes2, 4, out _filler);
         }
 
         public void WriteX(float x)
         {
             byte[] bytes = BitConverter.GetBytes(x);
-            WriteProcessMemory(Handle, x1, bytes, 4, out filler);
-            WriteProcessMemory(Handle, x2, bytes, 4, out filler);
+            WriteProcessMemory(_handle, _x1, bytes, 4, out _filler);
+            WriteProcessMemory(_handle, _x2, bytes, 4, out _filler);
         }
 
         public void WriteY(float y)
         {
-            WriteProcessMemory(Handle, y1, BitConverter.GetBytes(y), 4, out filler);
-            WriteProcessMemory(Handle, y2, BitConverter.GetBytes(y * -1), 4, out filler);
+            WriteProcessMemory(_handle, _y1, BitConverter.GetBytes(y), 4, out _filler);
+            WriteProcessMemory(_handle, _y2, BitConverter.GetBytes(y * -1), 4, out _filler);
         }
 
-        void SetAddresses(Client client)
+        public void SetAddresses()
         {
             try
             {
-                _ = client.SendNotification("Don't Move!");
+                _ = Client.SendNotification("Don't Move!");
                 SYSTEM_INFO sys_info = new SYSTEM_INFO();
                 GetSystemInfo(out sys_info);
                 long proc_min_address_l = (long)sys_info.minimumApplicationAddress;
@@ -190,7 +204,7 @@ namespace JazzRelay.Plugins.Utils
                 while (proc_min_address_l < proc_max_address_l)
                 {
                     MEMORY_BASIC_INFORMATION64 mem_basic_info = new MEMORY_BASIC_INFORMATION64();
-                    VirtualQueryEx(Handle, new IntPtr(proc_min_address_l), out mem_basic_info, (uint)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION64)));
+                    VirtualQueryEx(_handle, new IntPtr(proc_min_address_l), out mem_basic_info, (uint)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION64)));
 
                     if (mem_basic_info.State == 4096 && mem_basic_info.AllocationProtect == 4 && mem_basic_info.Type == 131072 && mem_basic_info.RegionSize == 16777216)
                         regions.Add(mem_basic_info);
@@ -199,36 +213,40 @@ namespace JazzRelay.Plugins.Utils
                 }
 
                 IntPtr bytesRead = (IntPtr)0;
-                WorldPosData loc = client.Position;
+                float x = Client.Position.X;
                 foreach (var region in regions)
                 {
                     var baseAddress = region.BaseAddress;
                     ulong buffSize = region.RegionSize;
                     byte[] buffer = new byte[buffSize];
-                    ReadProcessMemory(Handle, (IntPtr)baseAddress, buffer, (int)buffSize, out bytesRead);
+                    ReadProcessMemory(_handle, (IntPtr)baseAddress, buffer, (int)buffSize, out bytesRead);
 
-                    for (ulong i = 0; i < (ulong)bytesRead - 4 - 0x2c; i += 4)
+                    for (int i = 0; i < (int)bytesRead - 4 - 0x2c; i += 4)
                     {
-                        float meme = BitConverter.ToSingle(buffer, (int)i);
-                        float meme2 = BitConverter.ToSingle(buffer, (int)i + 0x2C);
-                        ulong address = baseAddress + i;
+                        float meme = BitConverter.ToSingle(buffer, i);
+                        if (meme != x) continue;
+                        float meme2 = BitConverter.ToSingle(buffer, i + 0x2C);
+                        if (meme != meme2) continue;
+                        int meme3 = BitConverter.ToInt32(buffer, i + 0x40);
+                        if (meme3 != 0) continue;
+                        int meme4 = BitConverter.ToInt32(buffer, i + 0xD4);
+                        if (meme4 == 0) continue;
+                        ulong address = baseAddress + (ulong)i;
 
-                        if (meme == loc.X && meme2 == meme)
-                        {
-                            x1 = (IntPtr)address;
-                            x2 = (IntPtr)(address + 0x2C);
-                            y1 = (IntPtr)address + 4;
-                            y2 = (IntPtr)(address + 4 + 0x2C);
-                            Console.WriteLine("Pattern found!");
-                            _ = client.SendNotification("Good!");
-                            return;
-                        }
+                        var temp = buffer.Skip(i).ToArray();
+                        _x1 = (IntPtr)address;
+                        _x2 = (IntPtr)(address + 0x2C);
+                        _y1 = (IntPtr)address + 4;
+                        _y2 = (IntPtr)(address + 4 + 0x2C);
+                        Console.WriteLine("Pattern found!");
+                        _ = Client.SendNotification("Good!");
+                        return;
                     }
                 }
 
                 throw new Exception("Pattern not matched! Contact Jazz.");
             }
-            catch (Exception ex) { Console.WriteLine(ex.Message); _ = client.SendNotification("Contact Jazz"); }
+            catch (Exception ex) { Console.WriteLine(ex.Message); _ = Client.SendNotification("Contact Jazz"); }
         }
     }
 }
