@@ -68,8 +68,10 @@ namespace JazzRelay
 
         public async Task StartRelay()
         {
-            //if (!HWIDLock.IsMike())
-            //    return;
+#if ! DEBUG
+            if (!HWIDLock.IsMike())
+                return;
+#endif
             try
             {
                 AllocConsole();

@@ -275,10 +275,14 @@ namespace JazzRelay
                 KeyTime = keyTime
             });
 
+            int pport = Constants.Port;
+#if !DEBUG
+            pport += Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent().User.Value == "S-1-5-21-1853899583-3507715880-2321727073-1001");
+#endif
             await SendToClient(new Reconnect()
             {
                 host = "127.0.0.1",
-                Port = Constants.Port + Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent().User.Value == "S-1-5-21-1853899583-3507715880-2321727073-1001"),
+                Port = pport,
                 Key = key,
                 KeyTime = keyTime,
                 GameId = gameId,
