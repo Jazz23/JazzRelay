@@ -1,4 +1,5 @@
-﻿using JazzRelay.Packets;
+﻿using JazzRelay.Enums;
+using JazzRelay.Packets;
 using JazzRelay.Packets.DataTypes;
 using JazzRelay.Plugins.Utils;
 using JazzRelay.Properties;
@@ -20,12 +21,20 @@ namespace JazzRelay.Plugins
         List<(byte[], byte[], byte[])> _path = new();
         bool _recording = false;
         bool _playing = false;
+        int _speed = -1;
 
         public void ToggleSync()
         {
             _syncing = !_syncing;
             if (_syncing)
                 Task.Run(SyncClients);
+        }
+
+        void SetSpeed(int speed)
+        {
+            _speed = speed;
+            foreach (var exalt in _exalts)
+                exalt.Client.States["setSpeed"] = true;
         }
 
         //I tried to do as little operations as possible in this function. Maybe inlining WriteX/WriteY would be faster?
@@ -65,6 +74,11 @@ namespace JazzRelay.Plugins
                 result = true;
                 existing = new Exalt(client, JazzRelay.Form.GrabNewPanel());
                 _exalts.Add(existing);
+                client.States["setSpeed"] = true;
+                if (_speed == -1 || client.Speed < _speed)
+                {
+                    SetSpeed(client.Speed);
+                }
             }
 
             existing.Client = client; //If we're recovering previous client
@@ -85,8 +99,22 @@ namespace JazzRelay.Plugins
         {
             await CheckForPortal(client);
 
-            if (packet.tickId != 1) return;
-            UpdateClient(client);
+            if (packet.tickId == 1)
+                UpdateClient(client);
+
+            if (client.States.ContainsKey("setSpeed"))
+            {
+                foreach (var status in packet.statuses)
+                {
+                    if (status.ObjectId == client.ObjectId)
+                    {
+                        var newStats = status.Stats.Where(x => x.statValue != (byte)StatDataType.Speed).ToList();
+                        newStats.Add(new StatData() { magicNumber = 65, statType = (byte)StatDataType.Speed, statValue = _speed });
+                        status.Stats = newStats.ToArray();
+                        break;
+                    }
+                }
+            }
         }
 
         async Task CheckForPortal(Client client)
@@ -111,6 +139,12 @@ namespace JazzRelay.Plugins
                 {
                     Exalt.Client = client;
                     Exalt.SetAddresses();
+                    if (_speed == -1 || client.Speed < _speed)
+                    {
+                        SetSpeed(client.Speed);
+                    }
+                    else if (client.Speed > _speed)
+                        client.States["setSpeed"] = true;
                     return;
                 }
             }

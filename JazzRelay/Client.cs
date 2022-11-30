@@ -34,6 +34,7 @@ namespace JazzRelay
         public bool Connected { get; set; }
         public Entity Self { get; set; }
         public string Name { get; private set; }
+        public int Speed { get; private set; }
         public Dictionary<int, Entity> Entities { get; set; } = new();
 
         JazzRelay _proxy;
@@ -326,6 +327,7 @@ namespace JazzRelay
                     {
                         client.Self = entity;
                         client.Name = entity.Stats.Stats.First(x => x.statType == (byte)StatDataType.Name).stringValue;
+                        client.Speed = entity.Stats.Stats.First(x => x.statType == (byte)StatDataType.Speed).statValue;
                     }
                     client.Entities[entity.Stats.ObjectId] = entity;
                 }
