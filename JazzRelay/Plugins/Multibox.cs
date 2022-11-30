@@ -172,7 +172,7 @@ namespace JazzRelay.Plugins
             try
             {
                 List<Exalt> bots = _exalts.Where(x => IsTogether(x.Client, client)).ToList();
-                while (_playing)
+                while (_playing && bots.Count > 0)
                 {
                     for (int i = 0; i < _path.Count && _playing; i++)
                     {
@@ -187,10 +187,10 @@ namespace JazzRelay.Plugins
                                 bot.WriteY(pos.Item2, pos.Item3);
                             }
                         }
-                        await Task.Delay(Constants.RecordingDelay - 1); //To help dc just in case we're ahead or something
+                        await Task.Delay(Constants.RecordingDelay + 1); //To help dc just in case we're ahead or something
                     }
                 }
-                _syncing = false;
+                _playing = false;
             }
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
