@@ -17,7 +17,7 @@ namespace JazzRelay.Plugins
         List<Exalt> _exalts = new();
         Exalt? _main = null;
         bool _syncing = false;
-        List<(byte[], byte[], byte[])> _path = new();
+        List<MoveRecord> _path = new();
         bool _recording = false;
         bool _playing = false;
 
@@ -174,20 +174,23 @@ namespace JazzRelay.Plugins
                 List<Exalt> bots = _exalts.Where(x => IsTogether(x.Client, client)).ToList();
                 while (_playing)
                 {
-                    for (int i = 0; i < _path.Count && _playing; i++)
+                    for (int i = 0; i < _path.Count - 1 && _playing; i++)
                     {
-                        (byte[], byte[], byte[]) pos = _path[i];
+                        MoveRecord record = _path[i];
+                        byte[] x = BitConverter.GetBytes(record.X);
+                        byte[] y1 = BitConverter.GetBytes(record.Y);
+                        byte[] y2 = BitConverter.GetBytes(record.Y * -1);
                         foreach (var bot in bots.ToArray())
                         {
                             if (!bot.Client.Connected) //We dc'd, don't write pos
                                 bots.Remove(bot);
                             else if (bot.Active) //We're in, and we're active
                             {
-                                bot.WriteX(pos.Item1);
-                                bot.WriteY(pos.Item2, pos.Item3);
+                                bot.WriteX(x);
+                                bot.WriteY(y1, y2);
                             }
                         }
-                        await Task.Delay(Constants.RecordingDelay - 1); //To help dc just in case we're ahead or something
+                        await Task.Delay(_path[i+1].Time - record.Time + 10); //-1 To help dc just in case we're ahead or something
                     }
                 }
                 _syncing = false;
@@ -195,21 +198,18 @@ namespace JazzRelay.Plugins
             catch (Exception ex) { Console.WriteLine(ex.Message); }
         }
 
-        async Task StartRecording()
+        void StartRecording()
         {
             _playing = false;
             if (_main == null) return;
-            _recording = false;
-            await Task.Delay(100); //Let existing recording stop
             _path = new();
             _recording = true;
+        }
 
-            while (_recording && _main.Client.Connected)
-            {
-                _main.UpdatePosition();
-                _path.Add((_main.X.ToArray(), _main.Y1.ToArray(), _main.Y2.ToArray()));
-                await Task.Delay(Constants.RecordingDelay);
-            }
+        public void HookMove(Client client, Move packet)
+        {
+            if (_recording && client == _main?.Client)
+                _path.AddRange(packet.MoveRecs);
         }
 
         void StopRecording() => _recording = false;
