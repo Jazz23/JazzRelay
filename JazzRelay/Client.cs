@@ -25,6 +25,8 @@ namespace JazzRelay
             get => (ConnectInfo)States["ConnectionInfo"];
             set => States["ConnectionInfo"] = value;
         }
+
+        public ConnectInfo OriginalConnInfo { get; private set; }
         public ObjectList States { get; set; } = new();
         public int ObjectId { get; set; } = -1;
         public WorldPosData Position { get; set; }
@@ -216,7 +218,10 @@ namespace JazzRelay
                 TcpClient? server = args.ProxyConnection;
                 if (server == null)
                 {
-                    throw new Exception("Unable to connect!");
+                    Server? nexus = JazzRelay.FindServerByHost(host);
+                    string name = nexus == null ? host : nexus.Name;
+                    Console.WriteLine($"Error connecting to {name}!");
+                    States["pause"] = true;
                 }
                 else
                 {
@@ -341,6 +346,7 @@ namespace JazzRelay
             {
                 client.SetPersistantObjects(packet.AccessToken);
                 client.AccessToken = packet.AccessToken;
+                client.OriginalConnInfo = new ConnectInfo(client.ConnectionInfo.Proxy, client.ConnectionInfo.Reconnect.CloneReconnect());
 
                 if (packet.GameId == -2 && !client.ConnectionInfo.IsNexus()) //We got manually sent here
                     client.ConnectionInfo.Reconnect.GameId = 0;

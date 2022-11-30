@@ -28,5 +28,18 @@ namespace JazzRelay.Plugins.Utils
         public static int? FindPlayer(this Client client, string name) => client.Entities.Values.FirstOrDefault(x => x.Stats.Name() == name)?.Stats.ObjectId;
 
         public static bool IsNexus(this ConnectInfo info) => JazzRelay.FindServerByHost(info.Reconnect.host) != null;
+
+        public static Reconnect CloneReconnect(this Reconnect packet)
+        {
+            return new Reconnect()
+            {
+                host = packet.host,
+                Port = packet.Port,
+                GameId = packet.GameId,
+                MapName = packet.MapName,
+                Key = packet.Key,
+                KeyTime = packet.KeyTime
+            };
+        }
     }
 }

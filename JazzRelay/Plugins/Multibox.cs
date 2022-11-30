@@ -245,16 +245,14 @@ namespace JazzRelay.Plugins
 
         public async Task HookReconnect(Client client, Reconnect packet)
         {
-            if (packet.GameId == 0 && _main?.Client == client)
+            //If we're going to a realm, we're main, and we're in nexus
+            if (packet.GameId != 0 || _main?.Client != client || !client.OriginalConnInfo.IsNexus()) return;
+            foreach (var exalt in _exalts)
             {
-                foreach (var exalt in _exalts)
+                if (exalt.Client != client)
                 {
-                    if (exalt.Client != client)
-                    {
-                        await exalt.Client.ConnectTo(packet.host, 2050, -2, "Realm", new byte[0], -1);
-                    }
+                    await exalt.Client.ConnectTo(packet.host, 2050, -2, "Realm", new byte[0], -1);
                 }
-
             }
         }
 
