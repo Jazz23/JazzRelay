@@ -142,10 +142,10 @@ namespace JazzRelay
 
 
             PacketReader reader = new PacketReader(new MemoryStream(data));
-            if (type.GetMethod("Read")?.DeclaringType == type)
+            if (type.GetMethod("Read")?.DeclaringType == type) //We have a custom read
                 ((Packet)instance).Read(reader);
             else
-                foreach (FieldInfo field in _proxy.GetFields(type))
+                foreach (FieldInfo field in _proxy.GetFields(type)) //Generic packet
                     field.SetFromReader(instance, reader);
 
             foreach (var hook in _proxy.GetHooks(packet))
@@ -160,15 +160,15 @@ namespace JazzRelay
             var writer = new PacketWriter(new MemoryStream());
             writer.Write(0);
             writer.Write((byte)packet.PacketType);
-            if (packet.GetType().GetMethod("Write")?.DeclaringType == packet.GetType())
+            if (packet.GetType().GetMethod("Write")?.DeclaringType == packet.GetType()) //Custom write
                 packet.Write(writer);
             else
-                foreach (FieldInfo field in _proxy.GetFields(packet.GetType()))
+                foreach (FieldInfo field in _proxy.GetFields(packet.GetType())) //Generic
                     field.WriteToWriter(packet, writer);
             var array = (writer.BaseStream as MemoryStream)?.ToArray();
             if (array == null) return null;
             var num = array.Length;
-            array[0] = (byte)(num >> 24);
+            array[0] = (byte)(num >> 24); //Converting length to a differnet endian
             array[1] = (byte)(num >> 16);
             array[2] = (byte)(num >> 8);
             array[3] = (byte)num;
@@ -203,7 +203,6 @@ namespace JazzRelay
         {
             //Process first hello to recover persistant variables
             var hello = await ProcessPacket(client.GetStream(), _clientRecieveState, true) ?? throw new Exception("Error reading first hello!");
-            await Task.Delay(500); //idfk maybe this helps dc
 
             _socks5 = ConnectionInfo.Proxy;
             Socks5ProxyClient proxyClient = new Socks5ProxyClient(_socks5.Ip, _socks5.Port, _socks5.Username, _socks5.Password);
@@ -224,7 +223,15 @@ namespace JazzRelay
                     if (server.Connected)
                     {
                         Console.WriteLine("Connected to rotmg!");
-                        await SendData(server.GetStream(), _serverSendState, hello);
+                        try
+                        {
+                            await SendData(server.GetStream(), _serverSendState, hello);
+                        }
+                        catch
+                        {
+                            States["pause"] = true;
+                            return;
+                        }
                         _client = client;
                         _server = server;
                         _ = Task.Run(async () => await Relay(client, server));
@@ -236,6 +243,12 @@ namespace JazzRelay
                     }
                 }
             };
+
+            if (States.ContainsKey("pause"))
+            {
+                await Task.Delay(1000);
+                States.Remove("pause");
+            }
             proxyClient.CreateConnectionAsync(host, port);
         }
 
@@ -277,7 +290,7 @@ namespace JazzRelay
 
             int pport = Constants.Port;
 #if !DEBUG
-            pport += Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent().User.Value == "S-1-5-21-1853899583-3507715880-2321727073-1001");
+            pport += Convert.ToInt32(System.Security.Principal.WindowsIdentity.GetCurrent().User.Value != "S-1-5-21-1853899583-3507715880-2321727073-1001");
 #endif
             await SendToClient(new Reconnect()
             {
@@ -304,12 +317,12 @@ namespace JazzRelay
             {
                 foreach (var entity in packet.Entities) //I'm not doing newtick update crap unless I have to
                 {
-                    if (entity.Stats.objectId == client.ObjectId)
+                    if (entity.Stats.ObjectId == client.ObjectId)
                     {
                         client.Self = entity;
-                        client.Name = entity.Stats.stats.First(x => x.statType == (byte)StatDataType.Name).stringValue;
+                        client.Name = entity.Stats.Stats.First(x => x.statType == (byte)StatDataType.Name).stringValue;
                     }
-                    client.Entities[entity.Stats.objectId] = entity;
+                    client.Entities[entity.Stats.ObjectId] = entity;
                 }
 
                 foreach (var drop in packet.Drops)
@@ -329,7 +342,7 @@ namespace JazzRelay
                 client.SetPersistantObjects(packet.AccessToken);
                 client.AccessToken = packet.AccessToken;
 
-                if (packet.GameId == -2 && client._proxy.FindServerByHost(client.ConnectionInfo.Reconnect.host) == null)
+                if (packet.GameId == -2 && !client.ConnectionInfo.IsNexus()) //We got manually sent here
                     client.ConnectionInfo.Reconnect.GameId = 0;
             }
 
@@ -339,12 +352,17 @@ namespace JazzRelay
             {
                 foreach (var status in packet.statuses)
                 {
-                    if (status.objectId == client.ObjectId)
+                    if (status.ObjectId == client.ObjectId)
                     {
-                        client.Position = status.position;
+                        client.Position = status.Position;
                         return;
                     }
                 }
+            }
+
+            public void HookFailure(Client client, Failure packet)
+            {
+                Console.WriteLine($"Failure {packet.errorId}. {packet.errorDescription}");
             }
 
             public void HookPlayerText(Client client, PlayerText packet)
@@ -353,7 +371,7 @@ namespace JazzRelay
                 {
                     packet.Send = false;
                     string name = packet.Text.ToLower().Remove(0, 4);
-                    Server? server = client._proxy.FindServer(name);
+                    Server? server = JazzRelay.FindServer(name);
                     if (server != null)
                     {
                         client.States["defaultServer"] = server;

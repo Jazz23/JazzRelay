@@ -81,10 +81,26 @@ namespace JazzRelay.Plugins
             }
         }
 
-        public void HookNewTick(Client client, NewTick packet)
+        public async Task HookNewTick(Client client, NewTick packet)
         {
+            await CheckForPortal(client);
+
             if (packet.tickId != 1) return;
             UpdateClient(client);
+        }
+
+        async Task CheckForPortal(Client client)
+        {
+            if (client.States.ContainsKey("targetPortal"))
+            {
+                ushort type = (ushort)client.States["targetPortal"];
+                var portal = client.Entities.Values.FirstOrDefault(x => x.ObjectType == type);
+                if (portal != default)
+                {
+                    client.States.Remove("targetPortal");
+                    await client.SendToServer(new UsePortal() { ObjectId = portal.Stats.ObjectId });
+                }
+            }
         }
 
         void UpdateClient(Client client)
@@ -135,18 +151,9 @@ namespace JazzRelay.Plugins
                 if (_path.Count > 0)
                     Task.Run(async() => await Play(client));
             }
-            else if (packet.Text.StartsWith("sethotkey "))
-            {
-                string key = packet.Text.Split(' ')[1];
-                if (key.Length == 1)
-                {
-                    Settings.Default.InteractHotkey = key;
-                    Settings.Default.Save();
-                }
-            }
             else if (packet.Text == "test")
             {
-                Task.Run(() => HookUsePortal(client, new UsePortal()));
+
             }
         }
 
@@ -208,32 +215,32 @@ namespace JazzRelay.Plugins
 
         public async Task HookUsePortal(Client client, UsePortal packet)
         {
-            if (_main?.Client == client)
-            {
-                if (_syncing)
-                    JazzRelay.Form.PressGlobalKey(Settings.Default.InteractHotkey);
-                else if (client.ConnectionInfo.Reconnect.GameId == 0)
-                {
-                    for (int i = 0; i < _exalts.Count; i++)
-                    {
-                        var exalt = _exalts[i];
-                        if (exalt.Client != client && IsTogether(exalt.Client, client))
-                        {
-                            var player = exalt.Client.FindPlayer(_main.Client.Name);
-                            if (player == null) continue;
-                            _ = Task.Run(async() => 
-                            { 
-                                await exalt.Client.SendToServer(new Teleport() { ObjectId = (int)player, Name = _main.Client.Name });
-                                await Task.Delay(1000);
-                                JazzRelay.Form.PressKey(exalt.Panel, Settings.Default.InteractHotkey);
-                                JazzRelay.Form.FocusPanel(_main.Panel);
-                            });
-                        }
-                    }
-                    await Task.Delay(1000);
-                }
+            if (_main?.Client != client || client.ConnectionInfo.IsNexus()) return;
 
+            await SendBotsThroughPortal(packet.ObjectId, !_syncing); //If we're synced, no need to teleport
+        }
+
+        public async Task SendBotsThroughPortal(int objectId, bool teleport)
+        {
+            if (_main == null) return;
+
+            var exalts = _exalts.Where(x => x.Client != _main.Client && IsTogether(x.Client, _main.Client)).ToList();
+            if (exalts.Count == 0) return;
+
+            foreach (var exalt in exalts)
+            {
+                exalt.Client.States["targetPortal"] = _main.Client.Entities[objectId].ObjectType;
+                if (teleport)
+                {
+                    var player = exalt.Client.FindPlayer(_main.Client.Name);
+                    if (player == null) continue;
+                    _ = Task.Run(async () => await exalt.Client.SendToServer(new Teleport() { ObjectId = (int)player, Name = _main.Client.Name }));
+                }
             }
+
+            var time = Environment.TickCount + 1000; //Safety so we don't get stuck
+            while (exalts.Exists(x => x.Client.Connected) && Environment.TickCount < time)
+                await Task.Delay(50);
         }
 
         public async Task HookReconnect(Client client, Reconnect packet)
@@ -258,11 +265,6 @@ namespace JazzRelay.Plugins
                 foreach (var exalt in _exalts)
                     if (exalt.Client != client) exalt.Client.Escape();
             }
-        }
-
-        public void HookUpdate(Client client, Update packet)
-        {
-
         }
     }
 }

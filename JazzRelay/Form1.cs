@@ -29,11 +29,17 @@ namespace JazzRelay
 
         [DllImport("user32.dll")]
         internal static extern IntPtr SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, nuint wParam, nint lParam);
+
         const int GWL_STYLE = (-16);
         const UInt32 WS_VISIBLE = 0x10000000;
         private const int SW_SHOWNORMAL = 1;
         private const int SW_SHOWMINIMIZED = 2;
         private const int SW_SHOWMAXIMIZED = 3;
+        private const int WM_XBUTTONDOWN = 0x20B;
+        private const int WM_XBUTTONUP = 0x20C;
 
         Dictionary<Panel, (float, float)> _sizeMap = new();
         Dictionary<Panel, (float, float)> _locMap = new();
@@ -80,8 +86,14 @@ namespace JazzRelay
             if (panel.ExaltHandle != default)
             {
                 SetForegroundWindow(panel.ExaltHandle);
+#if DEBUG
                 SendKeys.SendWait(key);
                 SendKeys.Flush();
+#else
+                SendMessage(panel.ExaltHandle, WM_XBUTTONDOWN, 0x10020, 0x19c011D);
+                SendMessage(panel.ExaltHandle, WM_XBUTTONUP, 0x10000, 0x19c011D);
+#endif
+
             }
         }
 

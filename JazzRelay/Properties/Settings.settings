@@ -5,8 +5,5 @@
     <Setting Name="DefaultServer" Type="System.String" Scope="User">
       <Value Profile="(Default)">USWest4</Value>
     </Setting>
-    <Setting Name="InteractHotkey" Type="System.String" Scope="User">
-      <Value Profile="(Default)">F</Value>
-    </Setting>
   </Settings>
 </SettingsFile>

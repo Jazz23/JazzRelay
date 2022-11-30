@@ -1,4 +1,5 @@
-﻿using JazzRelay.Enums;
+﻿using JazzRelay.DataTypes;
+using JazzRelay.Enums;
 using JazzRelay.Packets;
 using JazzRelay.Packets.DataTypes;
 using System;
@@ -22,8 +23,10 @@ namespace JazzRelay.Plugins.Utils
             });
         }
 
-        public static string? Name(this ObjectStatusData stats) => stats.stats.FirstOrDefault(x => x.statType == (byte)StatDataType.Name)?.stringValue;
+        public static string? Name(this ObjectStatusData stats) => stats.Stats.FirstOrDefault(x => x.statType == (byte)StatDataType.Name)?.stringValue;
 
-        public static int? FindPlayer(this Client client, string name) => client.Entities.Values.FirstOrDefault(x => x.Stats.Name() == name)?.Stats.objectId;
+        public static int? FindPlayer(this Client client, string name) => client.Entities.Values.FirstOrDefault(x => x.Stats.Name() == name)?.Stats.ObjectId;
+
+        public static bool IsNexus(this ConnectInfo info) => JazzRelay.FindServerByHost(info.Reconnect.host) != null;
     }
 }

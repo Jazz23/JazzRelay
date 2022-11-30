@@ -11,21 +11,21 @@ namespace JazzRelay.Packets.DataTypes
 {
     public class ObjectStatusData : IDataType
     {
-        public int objectId;
-        public WorldPosData position;
+        public int ObjectId;
+        public WorldPosData Position;
         [CompressedArray]
-        public StatData[] stats;
+        public StatData[] Stats;
         public void Read(PacketReader r)
         {
-            objectId = r.ReadCompressed();
-            (position = new WorldPosData()).Read(r);
-            stats = r.ReadArray<StatData>(true);
+            ObjectId = r.ReadCompressed();
+            (Position = new WorldPosData()).Read(r);
+            Stats = r.ReadArray<StatData>(true);
         }
         public void Write(PacketWriter w)
         {
-            w.WriteCompressed(objectId);
-            position.Write(w);
-            w.Write(stats, true);
+            w.WriteCompressed(ObjectId);
+            Position.Write(w);
+            w.Write(Stats, true);
         }
     }
 }

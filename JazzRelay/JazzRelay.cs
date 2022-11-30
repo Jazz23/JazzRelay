@@ -25,6 +25,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml.Serialization;
+using static JazzRelay.Client;
 using ObjectList = System.Collections.Generic.Dictionary<string, object>;
 
 namespace JazzRelay
@@ -46,7 +47,7 @@ namespace JazzRelay
             if (!_persistantObjects.TryGetValue(accessToken, out temp))
                 _persistantObjects.Add(accessToken, temp = new()
                 {
-                    { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = DefaultServer.DNS, Port = 2050 }) },
+                    { "ConnectionInfo", new ConnectInfo(FrontProxy, new Reconnect() { host = DefaultServer.DNS, Port = 2050, GameId = -2, Key = new byte[0], KeyTime = -1, MapName = "Nexus" }) },
                     { "defaultServer", DefaultServer}
                 });
             return temp;
@@ -119,7 +120,7 @@ namespace JazzRelay
             return result;
         }
 
-        public Server? FindServer(string name)
+        public static Server? FindServer(string name)
         {
             foreach (var server in Servers)
             {
@@ -127,7 +128,7 @@ namespace JazzRelay
             }
             return null;
         }
-        public Server? FindServerByHost(string host) => Servers.FirstOrDefault(x => x.DNS == host);
+        public static Server? FindServerByHost(string host) => Servers.FirstOrDefault(x => x.DNS == host);
 
         void InitPacketTypes()
         {
@@ -163,11 +164,15 @@ namespace JazzRelay
 
         void InitPlugins()
         {
-            IEnumerable<Type> plugins = Assembly.GetAssembly(typeof(IPlugin))?.GetTypes()?.Where(x => 
-            typeof(IPlugin).IsAssignableFrom(x) && x != typeof(IPlugin) && !Attribute.IsDefined(x, typeof(PluginDisabled))) ??
+            List<Type> plugins = Assembly.GetAssembly(typeof(IPlugin))?.GetTypes()?.Where(x => 
+            typeof(IPlugin).IsAssignableFrom(x) && x != typeof(IPlugin) && !Attribute.IsDefined(x, typeof(PluginDisabled))).ToList() ??
                 throw new Exception("Error reading plugin types!");
 
-            foreach (var plugin in plugins)
+            plugins.Remove(typeof(RelayEssentials)); //We want this plugin first
+            var newPlugins = new List<Type>() { typeof(RelayEssentials) };
+            newPlugins.AddRange(plugins);
+
+            foreach (var plugin in newPlugins)
             {
                 IPlugin instance = (IPlugin)(Activator.CreateInstance(plugin) ?? throw new Exception($"Error instanstiating plugin type {plugin.Name}!"));
                 foreach (var hook in plugin.GetMethods().Where(IsHook))
