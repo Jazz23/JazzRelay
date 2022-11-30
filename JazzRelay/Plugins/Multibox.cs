@@ -149,7 +149,7 @@ namespace JazzRelay.Plugins
             else if (packet.Text == "play")
             {
                 if (_path.Count > 0)
-                    Task.Run(async() => await Play(client));
+                    Task.Run(async () => await Play(client));
             }
             else if (packet.Text == "test")
             {
@@ -166,6 +166,7 @@ namespace JazzRelay.Plugins
         {
             _playing = false;
             _recording = false;
+            _syncing = false;
             await Task.Delay(100); //Let other play stop
             _playing = true;
             try
@@ -186,7 +187,7 @@ namespace JazzRelay.Plugins
                                 bot.WriteY(pos.Item2, pos.Item3);
                             }
                         }
-                        await Task.Delay(Constants.RecordingDelay);
+                        await Task.Delay(Constants.RecordingDelay - 1); //To help dc just in case we're ahead or something
                     }
                 }
                 _syncing = false;
