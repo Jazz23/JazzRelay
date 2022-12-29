@@ -115,11 +115,13 @@ namespace JazzRelay.Plugins.Utils
         public byte[] X { get; private set; } = new byte[4];
         public byte[] Y1 { get; private set; } = new byte[4];
         public byte[] Y2 { get; private set; } = new byte[4];
+        public WorldPosData Pos { get; private set; }
         public MultiPanel Panel { get; private set; }
 
         public Exalt(Client client, MultiPanel panel)
         {
             Client = client;
+            Pos = client.Position;
             Id = client.AccessToken;
             Active = true;
             Panel = panel;
@@ -163,7 +165,9 @@ namespace JazzRelay.Plugins.Utils
         {
             ReadProcessMemory(_handle, _x1, X, 4, out _filler);
             ReadProcessMemory(_handle, _y1, Y1, 4, out _filler);
-            Y2 = BitConverter.GetBytes(BitConverter.ToSingle(Y1) * -1);
+            Pos.X = BitConverter.ToSingle(X);
+            Pos.Y = BitConverter.ToSingle(Y1);
+            Y2 = BitConverter.GetBytes(Pos.Y * -1);
         }
 
         public void WriteX(byte[] bytes)

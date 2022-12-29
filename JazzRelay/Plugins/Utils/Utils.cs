@@ -41,5 +41,7 @@ namespace JazzRelay.Plugins.Utils
                 KeyTime = packet.KeyTime
             };
         }
+
+        public static WorldPosData Copy(this WorldPosData pos) => new WorldPosData(pos.X, pos.Y);
     }
 }
