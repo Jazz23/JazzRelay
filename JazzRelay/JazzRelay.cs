@@ -62,6 +62,7 @@ namespace JazzRelay
         public List<Client> Clients { get; set; } = new();
         public static List<Server> Servers = new();
 
+
         Dictionary<PacketType, Type> _packetTypes = new();
         Dictionary<Type, FieldInfo[]> _packetFields = new();
         Dictionary<string, ObjectList> _persistantObjects = new();

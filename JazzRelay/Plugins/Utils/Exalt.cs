@@ -239,6 +239,7 @@ namespace JazzRelay.Plugins.Utils
                         _y1 = (IntPtr)address + 4;
                         _y2 = (IntPtr)(address + 4 + 0x2C);
                         Console.WriteLine("Pattern found!");
+                        //Console.WriteLine(((IntPtr)(_x1 - 0x3c)).ToString("X16"));
                         _ = Client.SendNotification("Good!");
                         return;
                     }

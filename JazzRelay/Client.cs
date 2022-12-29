@@ -36,6 +36,8 @@ namespace JazzRelay
         public string Name { get; private set; }
         public int Speed { get; private set; }
         public Dictionary<int, Entity> Entities { get; set; } = new();
+        public delegate void PlayerCommand(Client client, string command, string[] args);
+        public event PlayerCommand Command;
 
         JazzRelay _proxy;
         TcpClient _client;
@@ -202,6 +204,7 @@ namespace JazzRelay
             return (Encoding.ASCII.GetString(host), BitConverter.ToInt32(port, 0));
         }
 
+        byte[]? bruh = null;
         public async Task BeginRelay(TcpClient client)
         {
             //Process first hello to recover persistant variables
@@ -255,6 +258,7 @@ namespace JazzRelay
                 await Task.Delay(1000);
                 States.Remove("pause");
             }
+            Console.WriteLine($"Connecting with {_socks5.Ip}");
             proxyClient.CreateConnectionAsync(host, port);
         }
 
@@ -310,6 +314,9 @@ namespace JazzRelay
             Dispose();
         }
 
+        public async Task ConnectTo(Reconnect recon) =>
+            await ConnectTo(recon.host, recon.Port, recon.GameId, recon.MapName, recon.Key, recon.KeyTime);
+
         [PluginEnabled]
         internal class RelayEssentials : IPlugin
         {
@@ -336,11 +343,14 @@ namespace JazzRelay
                     client.Entities.Remove(drop);
             }
 
-            public async Task HookReconnect(Client client, Reconnect packet)
+            public void HookReconnect(Client client, Reconnect packet)
             {
-                string host = packet.host == "" ? client.ConnectionInfo.Reconnect.host : packet.host;
-                int port = packet.Port == 0 ? client.ConnectionInfo.Reconnect.Port : packet.Port;
-                await client.ConnectTo(host, port, packet.GameId, packet.MapName, packet.Key, packet.KeyTime);
+                packet.host = packet.host == "" ? client.ConnectionInfo.Reconnect.host : packet.host;
+                packet.Port = packet.Port == 0 ? client.ConnectionInfo.Reconnect.Port : packet.Port;
+                client.ConnectionInfo = new ConnectInfo(client._socks5, packet.CloneReconnect());
+                packet.host = "127.0.0.1";
+                packet.Port = 2060;
+                //await client.ConnectTo(host, port, packet.GameId, packet.MapName, packet.Key, packet.KeyTime);
             }
 
             //I'm choosing no persistance between Exalt restarts/accesstokens. I don't want to wait until update.
@@ -354,7 +364,11 @@ namespace JazzRelay
                     client.ConnectionInfo.Reconnect.GameId = 0;
             }
 
-            public void HookCreateSuccess(Client client, CreateSuccess packet) => client.ObjectId = packet.objectId;
+            public void HookCreateSuccess(Client client, CreateSuccess packet)
+            {
+                client.ObjectId = packet.objectId;
+                client.Command += OnCommand;
+            }
 
             public void HookNewTick(Client client, NewTick packet)
             {
@@ -375,11 +389,19 @@ namespace JazzRelay
 
             public void HookPlayerText(Client client, PlayerText packet)
             {
-                if (packet.Text.StartsWith("con"))
+                //Missing prefix or contains no command
+                if (!packet.Text.StartsWith(Constants.CommandPrefix) || packet.Text.Length < 2) return;
+                packet.Send = false;
+                string[] info = packet.Text.Remove(0, 1).Split(' ');
+
+                Task.Run(() => client.Command?.Invoke(client, info[0], info.Length > 1 ? info.Skip(1).ToArray() : new string[0]));
+            }
+
+            void OnCommand(Client client, string command, string[] args)
+            {
+                if (command == "con" && args.Length > 0)
                 {
-                    packet.Send = false;
-                    string name = packet.Text.ToLower().Remove(0, 4);
-                    Server? server = JazzRelay.FindServer(name);
+                    Server? server = JazzRelay.FindServer(args[0]);
                     if (server != null)
                     {
                         client.States["defaultServer"] = server;
@@ -389,11 +411,14 @@ namespace JazzRelay
                         client.Escape();
                     }
                 }
-                else if (packet.Text == "server")
+                else if (command == "server")
                 {
-                    packet.Send = false;
                     Console.WriteLine(client.ConnectionInfo.Reconnect.host);
+                    Server? server = JazzRelay.FindServerByHost(client.OriginalConnInfo.Reconnect.host);
+                    Console.WriteLine(server?.Name);
                 }
+                else if (command == "loc")
+                    Console.WriteLine(client.Position);
             }
         }
     }

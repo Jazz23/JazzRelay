@@ -15,12 +15,9 @@ namespace JazzRelay.Plugins
     [PluginEnabled]
     internal class Multibox : IPlugin
     {
+        public Exalt? Main = null;
         List<Exalt> _exalts = new();
-        Exalt? _main = null;
         bool _syncing = false;
-        List<(byte[], byte[], byte[])> _path = new();
-        bool _recording = false;
-        bool _playing = false;
         int _speed = -1;
 
         public void ToggleSync()
@@ -42,16 +39,16 @@ namespace JazzRelay.Plugins
         {
             try
             {
-                while (_syncing && _main != null && _exalts.Count > 0 && _main.Client.Connected)
+                while (_syncing && Main != null && _exalts.Count > 0 && Main.Client.Connected)
                 {
-                    _main.UpdatePosition();
+                    Main.UpdatePosition();
                     for (int i = 0; i < _exalts.Count; i++)
                     {
                         var bot = _exalts[i];
-                        if (bot != _main && bot.Active && IsTogether(_main.Client, bot.Client)/* && bot.Client.Connected*/)
+                        if (bot != Main && bot.Active && IsTogether(Main.Client, bot.Client)/* && bot.Client.Connected*/)
                         {
-                            bot.WriteX(_main.X);
-                            bot.WriteY(_main.Y1, _main.Y2);
+                            bot.WriteX(Main.X);
+                            bot.WriteY(Main.Y1, Main.Y2);
                         }
                     }
                 }
@@ -88,9 +85,9 @@ namespace JazzRelay.Plugins
 
         public void SetMain(Exalt exalt)
         {
-            if (_main != exalt)
+            if (Main != exalt)
             {
-                _main = exalt;
+                Main = exalt;
                 JazzRelay.Form.SwapPanels(exalt.Panel, JazzRelay.Form.MainPanel);
             }
         }
@@ -150,126 +147,52 @@ namespace JazzRelay.Plugins
             }
         }
 
-        public void HookPlayerText(Client client, PlayerText packet)
-        {
-            if (!packet.Text.StartsWith("!")) return;
-            packet.Send = false;
-            packet.Text = packet.Text.Remove(0, 1);
+        public void HookCreateSuccess(Client client, CreateSuccess packet) => client.Command += OnCommand;
 
-            if (packet.Text == "main")
+        void OnCommand(Client client, string command, string[] args)
+        {
+            if (command == "main")
             {
                 Exalt exalt;
                 AddAccount(client, out exalt);
                 SetMain(exalt);
             }
-            else if (packet.Text == "bot")
+            else if (command == "bot")
             {
                 Exalt exalt;
                 if (!AddAccount(client, out exalt))
                     exalt.Active = !exalt.Active;
             }
-            else if (packet.Text == "sync")
+            else if (command == "sync")
                 ToggleSync();
-            else if (packet.Text == "start")
-            {
-                if (_main?.Client != client) return;
-                Task.Run(StartRecording);
-            }
-            else if (packet.Text == "stop")
-            {
-                StopRecording();
-                StopPlaying();
-            }
-            else if (packet.Text == "play")
-            {
-                if (_path.Count > 0)
-                    Task.Run(async () => await Play(client));
-            }
-            else if (packet.Text == "test")
+            else if (command == "test")
             {
 
             }
         }
-
-        void StopPlaying()
-        {
-            _playing = false;
-        }
-
-        async Task Play(Client client)
-        {
-            _playing = false;
-            _recording = false;
-            _syncing = false;
-            await Task.Delay(100); //Let other play stop
-            _playing = true;
-            try
-            {
-                List<Exalt> bots = _exalts.Where(x => IsTogether(x.Client, client)).ToList();
-                while (_playing && bots.Count > 0)
-                {
-                    for (int i = 0; i < _path.Count && _playing; i++)
-                    {
-                        (byte[], byte[], byte[]) pos = _path[i];
-                        foreach (var bot in bots.ToArray())
-                        {
-                            if (!bot.Client.Connected) //We dc'd, don't write pos
-                                bots.Remove(bot);
-                            else if (bot.Active) //We're in, and we're active
-                            {
-                                bot.WriteX(pos.Item1);
-                                bot.WriteY(pos.Item2, pos.Item3);
-                            }
-                        }
-                        await Task.Delay(Constants.RecordingDelay + 1); //To help dc just in case we're ahead or something
-                    }
-                }
-                _playing = false;
-            }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
-        }
-
-        async Task StartRecording()
-        {
-            _playing = false;
-            if (_main == null) return;
-            _recording = false;
-            await Task.Delay(100); //Let existing recording stop
-            _path = new();
-            _recording = true;
-
-            while (_recording && _main.Client.Connected)
-            {
-                _main.UpdatePosition();
-                _path.Add((_main.X.ToArray(), _main.Y1.ToArray(), _main.Y2.ToArray()));
-                await Task.Delay(Constants.RecordingDelay);
-            }
-        }
-
-        void StopRecording() => _recording = false;
 
         public async Task HookUsePortal(Client client, UsePortal packet)
         {
-            if (_main?.Client != client || client.ConnectionInfo.IsNexus()) return;
+            if (Main?.Client != client || client.ConnectionInfo.IsNexus()) return;
 
             await SendBotsThroughPortal(packet.ObjectId, !_syncing); //If we're synced, no need to teleport
         }
 
         public async Task SendBotsThroughPortal(int objectId, bool teleport)
         {
-            if (_main == null) return;
+            if (Main == null) return;
 
-            var exalts = _exalts.Where(x => x.Client != _main.Client && IsTogether(x.Client, _main.Client)).ToList();
+            var exalts = _exalts.Where(x => x.Client != Main.Client && IsTogether(x.Client, Main.Client)).ToList();
             if (exalts.Count == 0) return;
 
             foreach (var exalt in exalts)
             {
-                exalt.Client.States["targetPortal"] = _main.Client.Entities[objectId].ObjectType;
+                exalt.Client.States["targetPortal"] = Main.Client.Entities[objectId].ObjectType;
                 if (teleport)
                 {
-                    var player = exalt.Client.FindPlayer(_main.Client.Name);
+                    var player = exalt.Client.FindPlayer(Main.Client.Name);
                     if (player == null) continue;
-                    _ = Task.Run(async () => await exalt.Client.SendToServer(new Teleport() { ObjectId = (int)player, Name = _main.Client.Name }));
+                    _ = Task.Run(async () => await exalt.Client.SendToServer(new Teleport() { ObjectId = (int)player, Name = Main.Client.Name }));
                 }
             }
 
@@ -281,7 +204,7 @@ namespace JazzRelay.Plugins
         public async Task HookReconnect(Client client, Reconnect packet)
         {
             //If we're going to a realm, we're main, and we're in nexus
-            if (packet.GameId != 0 || _main?.Client != client || !client.OriginalConnInfo.IsNexus()) return;
+            if (packet.GameId != 0 || Main?.Client != client || !client.OriginalConnInfo.IsNexus()) return;
             foreach (var exalt in _exalts)
             {
                 if (exalt.Client != client)
@@ -293,7 +216,7 @@ namespace JazzRelay.Plugins
 
         public void HookEscape(Client client, Escape packet)
         {
-            if (_main?.Client == client && _syncing)
+            if (Main?.Client == client && _syncing)
             {
                 foreach (var exalt in _exalts)
                     if (exalt.Client != client) exalt.Client.Escape();
