@@ -15,7 +15,7 @@ namespace JazzRelay.Plugins
     [PluginEnabled]
     internal class Multibox : IPlugin
     {
-        public Exalt? Main = null;
+        public static Exalt? Main = null;
         List<Exalt> _exalts = new();
         bool _syncing = false;
         int _speed = -1;
@@ -147,7 +147,7 @@ namespace JazzRelay.Plugins
             }
         }
 
-        public void HookCreateSuccess(Client client, CreateSuccess packet) => client.Command += OnCommand;
+        public void HookCreateSuccess(Client client, CreateSuccess packet) => client.Command += this.OnCommand;
 
         void OnCommand(Client client, string command, string[] args)
         {
