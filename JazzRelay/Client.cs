@@ -40,12 +40,13 @@ namespace JazzRelay
         public bool Dead { get; private set; } = false;
         StatData _health { get; set; }
         public Dictionary<int, Entity> Entities { get; set; } = new();
+        public List<PacketType> PacketBlackList { get; set; } = new();
         public delegate void PlayerCommand(Client client, string command, string[] args);
         public event PlayerCommand Command;
 
         JazzRelay _proxy;
         TcpClient _client;
-        TcpClient? _server;
+        public TcpClient? _server;
 
         RC4 _serverRecieveState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
         RC4 _serverSendState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
@@ -136,9 +137,10 @@ namespace JazzRelay
                 cipher.Cipher(data, 0);
                 PacketType packetType = (PacketType)headers[4];
 
-                if (packetType != PacketType.AllyShoot && packetType != PacketType.Move && packetType != PacketType.NewTick && packetType != PacketType.UpdateAck
-                     && packetType != PacketType.Update && packetType != PacketType.Ping && packetType != PacketType.Pong
-                      && packetType != PacketType.EnemyShoot) Console.WriteLine(packetType);
+                //if (packetType != PacketType.AllyShoot && packetType != PacketType.Move && packetType != PacketType.NewTick && packetType != PacketType.UpdateAck
+                //     && packetType != PacketType.Update && packetType != PacketType.Ping && packetType != PacketType.Pong
+                //      && packetType != PacketType.EnemyShoot) Console.WriteLine(packetType);
+                // Console.WriteLine($"{(isExalt ? "Outgoing" : "Incoming")} {packetType}");
 
                 if (packetType == PacketType.OtherHit)
                 {
@@ -147,7 +149,9 @@ namespace JazzRelay
 
                 WeGot(packetType);
                 var resultData = headers.Concat(data).ToArray();
-                if (_proxy.HasHook(packetType))
+                if (PacketBlackList.Contains(packetType))
+                    resultData = new byte[0];
+                else if (_proxy.HasHook(packetType))
                     resultData = await HandlePacket(packetType, resultData, isExalt);
 
                 return resultData;
@@ -294,7 +298,7 @@ namespace JazzRelay
 
         async Task Send(Packet packet, TcpClient? client, RC4 cipher)
         {
-            Console.WriteLine("sending");
+            // Console.WriteLine("sending");
             if (client == null || !(client?.Connected ?? false)) return;
             var bytes = PacketToBytes(packet, false);
             if (bytes == null) return;

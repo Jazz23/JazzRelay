@@ -56,7 +56,7 @@ namespace JazzRelay
         public FieldInfo[] GetFields(Type packetType) => _packetFields[packetType]; //I want to throw an error here
         readonly List<Proxy> _frontProxies = new List<Proxy>();
         int _frontProxiesIndex = 0;
-        public Proxy FrontProxy => _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
+        public Proxy FrontProxy => _frontProxies.First(x => x.Ip == "45.41.179.109");// _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
         public bool Listen = true;
         public static Form1 Form { get; set; } = new();
         public List<Client> Clients { get; set; } = new();
@@ -211,7 +211,7 @@ namespace JazzRelay
 
         async Task LoadProxies()
         {
-            await Proxy.LoadWebshare("https://proxy.webshare.io/proxy/list/download/dvguknavbddgodgjawdlnfnetmuhnusmnmzkgimb/-/socks/username/direct/",
+            await Proxy.LoadWebshare("https://proxy.webshare.io/api/v2/proxy/list/download/vypfzbswdoibhytiklpatdgpanwkjringjyiixgx/-/any/username/direct/-/",
             new List<Proxy>(), _frontProxies);
         }
     }

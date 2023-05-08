@@ -1,6 +1,7 @@
 ﻿using JazzRelay.Packets;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -21,9 +22,24 @@ namespace JazzRelay.Plugins
         {
             packet.GameId = -1;
         }
+        int time = 0;
+        long ourTime = 0;
+        Stopwatch sw = Stopwatch.StartNew();
+        //public void HookServerPlayerShoot(Client client, ServerPlayerShoot packet)
+        //{
+        //    packet.bulletId = -1;
+        //    //packet.Send = false;
+        //    //var shootAck2 = new ShootAckCounter
+        //    //{
+        //    //    Amount = 1,
+        //    //    Time = time + (int)(sw.ElapsedMilliseconds - ourTime)
+        //    //};
+        //    //await client.SendToServer(shootAck2);
+        //}
 
         public async Task HookUseItem(Client client, UseItem packet)
         {
+            // client.PacketBlackList.Add(Enums.PacketType.ShowEffect);
             var tasks = new List<Task>();
             for (int i = 0; i < 350000; i++)
             {
@@ -35,34 +51,12 @@ namespace JazzRelay.Plugins
                     useType = packet.useType
                 };
                 tasks.Add(client.SendToServer(useItem));
+                // await client.SendToServer(useItem);
             }
             await Task.WhenAll(tasks);
-            await Task.Delay(10000);
+            await Task.Delay(15000);
 
             packet.Send = false;
-            return;
-            Task.Run(async () =>
-            {
-                var tasks = new List<Task>();
-                for (int i = 0; i < 1000; i++)
-                {
-                    var useItem = new UseItem
-                    {
-                        ItemUsePosition = packet.ItemUsePosition,
-                        SlotObjectData = packet.SlotObjectData,
-                        Time = packet.Time + i * 500,
-                        useType = packet.useType
-                    };
-                    // useItem.SlotObjectData.objectType = 2564;
-                    useItem.SlotObjectData.slotId = 1;
-                    tasks.Add(Task.Run(async () => {
-                        //await Task.Delay(i);
-                        await client.SendToServer(useItem);
-                        //await client.SendToServer(lastLoad);
-                    }));
-                }
-                await Task.WhenAll(tasks);
-            });
         }
     }
 }

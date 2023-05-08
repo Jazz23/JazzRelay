@@ -55,9 +55,7 @@ namespace JazzRelay.DataTypes
             for (var i = 0; i < lines.Length; i++)
             {
                 var proxy = new Proxy(lines[i]);
-                if (!proxy.IsGood()) continue;
-                if (i > lines.Length / 2) frontend.Add(proxy);
-                else backend.Add(proxy);
+                frontend.Add(proxy);
             }
         }
     }
