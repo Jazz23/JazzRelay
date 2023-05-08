@@ -35,6 +35,10 @@ namespace JazzRelay
         public Entity Self { get; set; }
         public string Name { get; private set; }
         public int Speed { get; private set; }
+        public int Health { get => _health.statValue; private set => _health.statValue = value; }
+        public int PrevHealth { get; private set; }
+        public bool Dead { get; private set; } = false;
+        StatData _health { get; set; }
         public Dictionary<int, Entity> Entities { get; set; } = new();
         public delegate void PlayerCommand(Client client, string command, string[] args);
         public event PlayerCommand Command;
@@ -103,6 +107,14 @@ namespace JazzRelay
             Task.Run(async () => await ConnectTo(server.DNS, 2050, -2, "Nexus", new byte[0], -1));
         }
 
+        public void KillServerConnection()
+        {
+            Connected = false;
+            _server?.Dispose();
+        }
+
+        public void Nexus() => Escape();
+
         async Task<byte[]?> ProcessPacket(NetworkStream stream, RC4 cipher, bool isExalt)
         {
             bool idk = stream.Socket.Connected;
@@ -123,6 +135,16 @@ namespace JazzRelay
 
                 cipher.Cipher(data, 0);
                 PacketType packetType = (PacketType)headers[4];
+
+                if (packetType != PacketType.AllyShoot && packetType != PacketType.Move && packetType != PacketType.NewTick && packetType != PacketType.UpdateAck
+                     && packetType != PacketType.Update && packetType != PacketType.Ping && packetType != PacketType.Pong
+                      && packetType != PacketType.EnemyShoot) Console.WriteLine(packetType);
+
+                if (packetType == PacketType.OtherHit)
+                {
+
+                }
+
                 WeGot(packetType);
                 var resultData = headers.Concat(data).ToArray();
                 if (_proxy.HasHook(packetType))
@@ -157,6 +179,10 @@ namespace JazzRelay
                 await (((Task?)hook.Item2.Invoke(hook.Item1, new object[2] { this, instance })) ?? Task.Delay(0));
 
             Packet thePacket = (Packet)instance;
+
+            if (thePacket.GetType().IsEquivalentTo(typeof(PlayerHit)))
+                Console.WriteLine(thePacket.Send);
+
             return thePacket.Send ? (PacketToBytes((Packet)instance, isExalt) ?? totalData) : new byte[0];
         }
 
@@ -204,7 +230,6 @@ namespace JazzRelay
             return (Encoding.ASCII.GetString(host), BitConverter.ToInt32(port, 0));
         }
 
-        byte[]? bruh = null;
         public async Task BeginRelay(TcpClient client)
         {
             //Process first hello to recover persistant variables
@@ -335,6 +360,7 @@ namespace JazzRelay
                         client.Self = entity;
                         client.Name = entity.Stats.Stats.First(x => x.statType == (byte)StatDataType.Name).stringValue;
                         client.Speed = entity.Stats.Stats.First(x => x.statType == (byte)StatDataType.Speed).statValue;
+                        client._health = entity.Stats.Stats.First(x => x.statType == (byte)StatDataType.HP);
                     }
                     client.Entities[entity.Stats.ObjectId] = entity;
                 }
@@ -376,9 +402,28 @@ namespace JazzRelay
                 {
                     if (status.ObjectId == client.ObjectId)
                     {
-                        client.Position = status.Position;
+                        UpdateStats(client, status);
                         return;
                     }
+                }
+            }
+
+            void UpdateStats(Client client, ObjectStatusData newStats)
+            {
+                client.Position = newStats.Position;
+                client.PrevHealth = client.Health;
+                for (int i = 0; i < newStats.Stats.Length; i++)
+                {
+                    StatData newStat = newStats.Stats[i];
+                    StatData? oldStat = client.Self.Stats.Stats.FirstOrDefault(x => x.statType == newStat.statType);
+                    if (oldStat != null)
+                    {
+                        oldStat.stringValue = newStat.stringValue;
+                        oldStat.magicNumber = newStat.magicNumber;
+                        oldStat.statValue = newStat.statValue;
+                    }
+                    else
+                        client.Self.Stats.Stats.Append(newStat);
                 }
             }
 
@@ -395,6 +440,14 @@ namespace JazzRelay
                 string[] info = packet.Text.Remove(0, 1).Split(' ');
 
                 Task.Run(() => client.Command?.Invoke(client, info[0], info.Length > 1 ? info.Skip(1).ToArray() : new string[0]));
+            }
+
+            public void HookPlayerHit(Client client, PlayerHit packet)
+            {
+                Console.WriteLine($"{client.Health}  {client.PrevHealth} {packet.Damage}");
+                client.Health -= packet.Damage;
+                client.PrevHealth -= packet.Damage;
+                if (client.PrevHealth <= 0) client.Dead = true;
             }
 
             void OnCommand(Client client, string command, string[] args)

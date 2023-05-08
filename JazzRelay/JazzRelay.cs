@@ -74,25 +74,25 @@ namespace JazzRelay
             if (!HWIDLock.IsMike())
                 return;
 #endif
-            try
-            {
+            //try
+            //{
                 AllocConsole();
-                _ = Task.Run(() =>
-                {
-                    Application.EnableVisualStyles();
-                    Application.Run(Form);
-                });
+                //_ = Task.Run(() =>
+                //{
+                //    Application.EnableVisualStyles();
+                //    Application.Run(Form);
+                //});
                 InitServerList();
                 InitPlugins();
                 InitPacketTypes();
                 _ = Task.Run(LoadProxies);
                 _ = Task.Run(TCPListen);
                 await Task.Delay(-1);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace);
-            }
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine("{0}\n{1}", ex.Message, ex.StackTrace);
+            //}
         }
 
         private void InitServerList()

@@ -12,7 +12,7 @@ using System.Text;
 
 namespace JazzRelay.Plugins
 {
-    [PluginEnabled]
+    [PluginDisabled]
     internal class Multibox : IPlugin
     {
         public static Exalt? Main = null;

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Plugins
 {
+    [PluginDisabled]
     internal class Recorder : IPlugin
     {
         #region WinAPI
