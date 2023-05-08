@@ -81,7 +81,7 @@ namespace JazzRelay
             {
                 while (clientStream.Socket.Connected && serverStream.Socket.Connected && _proxy.Listen)
                 {
-                    var resultData = await ProcessPacket(clientStream, cipherIn, isExalt) ?? throw new Exception("Error reading packet!");
+                    var resultData = await ProcessPacket(clientStream, cipherIn, isExalt);// ?? throw new Exception("Error reading packet!");
                     await SendData(serverStream, cipherOut, resultData);
                 }
             }
@@ -120,8 +120,8 @@ namespace JazzRelay
             bool idk = stream.Socket.Connected;
             byte[] headers = new byte[5];
             bool broken = false;
-            try
-            {
+            //try
+            //{
                 if (!(await stream.ReceiveAll(headers))) throw new Exception("Error recieving headers");
                 byte[] data = new byte[headers.ToInt32() - 5];
                 if (!(await stream.ReceiveAll(data))) throw new Exception("Error recieving data");
@@ -151,11 +151,11 @@ namespace JazzRelay
                     resultData = await HandlePacket(packetType, resultData, isExalt);
 
                 return resultData;
-            }
-            catch (Exception ex)
-            {
-                return null;
-            }
+            //}
+            //catch (Exception ex)
+            //{
+           //     return null;
+            //}
         }
 
         async Task<byte[]> HandlePacket(PacketType packet, byte[] totalData, bool isExalt)
