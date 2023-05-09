@@ -1,45 +1,96 @@
-﻿using JazzRelay.Packets;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrackBar;
+﻿using JazzRelay.Enums;
+using JazzRelay.Packets;
+using JazzRelay.Packets.DataTypes;
 
 namespace JazzRelay.Plugins
 {
     internal class PacketSpam : IPlugin
     {
-        Move lastMove;
-        Load lastLoad;
-        public void HookLoad(Client client, Load packet)
+        public enum Classes : ushort
         {
-            lastLoad = packet;
+            Rogue = 768,
+            Archer = 775,
+            Wizard = 782,
+            Priest = 784,
+            Samurai = 785,
+            Bard = 796,
+            Warrior = 797,
+            Knight = 798,
+            Paladin = 799,
+            Assassin = 800,
+            Necromancer = 801,
+            Huntress = 802,
+            Mystic = 803,
+            Trickster = 804,
+            Sorcerer = 805,
+            Ninja = 806,
+            Summoner = 817,
+            Kensei = 818,
         }
+
+        Dictionary<int, Entity> entites = new();
+
+        int offset = 0;
 
         public void HookHello(Client client, Hello packet)
         {
-            packet.GameId = -1;
+            //packet.GameId = -1;
+            entites = new();
         }
-        int time = 0;
-        long ourTime = 0;
-        Stopwatch sw = Stopwatch.StartNew();
-        //public void HookServerPlayerShoot(Client client, ServerPlayerShoot packet)
-        //{
-        //    packet.bulletId = -1;
-        //    //packet.Send = false;
-        //    //var shootAck2 = new ShootAckCounter
-        //    //{
-        //    //    Amount = 1,
-        //    //    Time = time + (int)(sw.ElapsedMilliseconds - ourTime)
-        //    //};
-        //    //await client.SendToServer(shootAck2);
-        //}
+
+        public void HookNewTick(Client client, NewTick packet)
+        {
+            foreach (var status in packet.statuses)
+            {
+                entites[status.ObjectId].Stats.Position = status.Position;
+            }
+        }
+
+        public void HookPong(Client client, Pong packet)
+        {
+            packet.Time += offset;
+        }
+
+        public void HookMove(Client client, Move packet) => packet.Time += offset;
+
+        public async void HookPlayerText(Client client, PlayerText packet)
+        {
+            offset += 5000;
+            await client.SendToClient(new Goto
+            {
+                ObjectId = client.ObjectId,
+                Position = new(client.Position.X, client.Position.Y-10),
+            });
+            packet.Send = false;
+        }
+
+        public void HookGotoAck(Client client, GotoAck packet) => packet.Send = false;
+
+        public void HookUpdate(Client client, Update packet)
+        {
+            foreach (var entity in packet.Entities)
+            {
+                entites[entity.Stats.ObjectId] = entity;
+            }
+
+            foreach (var drop in packet.Drops)
+            {
+                entites.Remove(drop);
+            }
+        }
 
         public async Task HookUseItem(Client client, UseItem packet)
         {
-            // client.PacketBlackList.Add(Enums.PacketType.ShowEffect);
+            //Entity? closest = null;
+            //foreach (var entity in entites.Values.ToList())
+            //{
+            //    if (closest == null || entity.Stats.Position.DistanceTo(packet.ItemUsePosition) < closest.Stats.Position.DistanceTo(packet.ItemUsePosition))
+            //    {
+            //        closest = entity;
+            //    }
+            //}
+            //if (closest == null) return;
+            // packet.ItemUsePosition = closest!.Stats.Position;
             var tasks = new List<Task>();
             for (int i = 0; i < 350000; i++)
             {
@@ -51,12 +102,8 @@ namespace JazzRelay.Plugins
                     useType = packet.useType
                 };
                 tasks.Add(client.SendToServer(useItem));
-                // await client.SendToServer(useItem);
             }
             await Task.WhenAll(tasks);
-            await Task.Delay(15000);
-
-            packet.Send = false;
         }
     }
 }

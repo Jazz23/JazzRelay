@@ -82,7 +82,7 @@ namespace JazzRelay
             {
                 while (clientStream.Socket.Connected && serverStream.Socket.Connected && _proxy.Listen)
                 {
-                    var resultData = await ProcessPacket(clientStream, cipherIn, isExalt) ?? throw new Exception("Error reading packet!");
+                    var resultData = await ProcessPacket(clientStream, cipherIn, isExalt) ?? throw new Exception($"Error reading packet! {isExalt}");
                     await SendData(serverStream, cipherOut, resultData);
                 }
             }
