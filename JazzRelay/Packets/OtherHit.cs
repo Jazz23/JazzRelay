@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 
 namespace JazzRelay.Packets
 {
-    internal class PlayerHit : IncomingPacket
+    internal class OtherHit : OutgoingPacket
     {
-        public ushort bulletId;
-        public int objectId;
+        public int Time;
+        public ushort BulletId;
+        public int OwnerId;
+        public int TargetId;
     }
 }

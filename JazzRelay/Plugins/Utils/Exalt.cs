@@ -116,7 +116,7 @@ namespace JazzRelay.Plugins.Utils
         public byte[] Y1 { get; private set; } = new byte[4];
         public byte[] Y2 { get; private set; } = new byte[4];
         public WorldPosData Pos { get; private set; }
-        public MultiPanel Panel { get; private set; }
+        public MultiPanel? Panel { get; private set; }
 
         public Exalt(Client client, MultiPanel panel)
         {
@@ -130,8 +130,23 @@ namespace JazzRelay.Plugins.Utils
             if (panel != null)
             {
                 Panel.ExaltHandle = GetForegroundWindow();
-                JazzRelay.Form.SetPanel(Panel, panel.Panel);
+                Multibox.Form.SetPanel(Panel, panel.Panel);
             }
+
+            GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+            _handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),
+            false, pid);
+
+            SetAddresses();
+        }
+
+        public Exalt(Client client)
+        {
+            Client = client;
+            Pos = client.Position;
+            Id = client.AccessToken;
+            Active = true;
+            uint pid;
 
             GetWindowThreadProcessId(GetForegroundWindow(), out pid);
             _handle = OpenProcess((uint)(ProcessAccessFlags.QueryInformation | ProcessAccessFlags.VirtualMemoryRead | ProcessAccessFlags.VirtualMemoryWrite),

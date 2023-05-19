@@ -33,7 +33,8 @@ namespace JazzRelay.Extensions
             { typeof(Tile[]), (pr, f) => pr.ReadArray<Tile>(f) },
             { typeof(Entity[]), (pr, f) => pr.ReadArray<Entity>(f) },
             { typeof(int[]), (pr, f) => { int length = pr.ReadCompressed(); var result = new int[length]; for (int i = 0; i < length; i++) result[i] = pr.ReadCompressed(); return result; } },
-            { typeof(SlotObjectData), (pr, f) => new SlotObjectData(pr) }
+            { typeof(SlotObjectData), (pr, f) => new SlotObjectData(pr) },
+            { typeof(SlotObjectData[]), (pr, f) => pr.ReadArray<SlotObjectData>(f) }
         };
 
         private static Dictionary<Type, Action<PacketWriter, object, FieldInfo>> _writeTypes = new Dictionary<Type, Action<PacketWriter, object, FieldInfo>>
@@ -56,6 +57,7 @@ namespace JazzRelay.Extensions
             { typeof(Entity[]), (pw, v, f) => pw.Write((Entity[])v, f) },
             { typeof(int[]), (pw, v, f) => { pw.WriteCompressed(((int[])v).Length); foreach (var value in (int[])v) pw.WriteCompressed(value); } },
             { typeof(SlotObjectData), (pw, v, f) => ((SlotObjectData)v).Write(pw) },
+            { typeof(SlotObjectData[]), (pw, v, f) => pw.Write((SlotObjectData[])v, f) }
         };
 
         public static void SetFromReader(this FieldInfo field, object obj, PacketReader reader)

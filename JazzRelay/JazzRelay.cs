@@ -56,9 +56,8 @@ namespace JazzRelay
         public FieldInfo[] GetFields(Type packetType) => _packetFields[packetType]; //I want to throw an error here
         readonly List<Proxy> _frontProxies = new List<Proxy>();
         int _frontProxiesIndex = 0;
-        public Proxy FrontProxy => _frontProxies.First(x => x.Ip == "45.41.179.109");// _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
+        public Proxy FrontProxy => /*_frontProxies.First(x => x.Ip == "45.12.140.22");*/ _frontProxies[_frontProxiesIndex++ % _frontProxies.Count];
         public bool Listen = true;
-        public static Form1 Form { get; set; } = new();
         public List<Client> Clients { get; set; } = new();
         public static List<Server> Servers = new();
 
@@ -77,11 +76,6 @@ namespace JazzRelay
             //try
             //{
                 AllocConsole();
-                //_ = Task.Run(() =>
-                //{
-                //    Application.EnableVisualStyles();
-                //    Application.Run(Form);
-                //});
                 InitServerList();
                 InitPlugins();
                 InitPacketTypes();

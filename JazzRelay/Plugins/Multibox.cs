@@ -15,6 +15,7 @@ namespace JazzRelay.Plugins
     [PluginDisabled]
     internal class Multibox : IPlugin
     {
+        public static Form1 Form { get; set; } = new();
         public static Exalt? Main = null;
         List<Exalt> _exalts = new();
         bool _syncing = false;
@@ -32,6 +33,15 @@ namespace JazzRelay.Plugins
             _speed = speed;
             foreach (var exalt in _exalts)
                 exalt.Client.States["setSpeed"] = true;
+        }
+
+        static Multibox()
+        {
+            _ = Task.Run(() =>
+            {
+                Application.EnableVisualStyles();
+                Application.Run(Form);
+            });
         }
 
         //I tried to do as little operations as possible in this function. Maybe inlining WriteX/WriteY would be faster?
@@ -69,7 +79,7 @@ namespace JazzRelay.Plugins
             if (existing == null)
             {
                 result = true;
-                existing = new Exalt(client, JazzRelay.Form.GrabNewPanel());
+                existing = new Exalt(client, Multibox.Form.GrabNewPanel());
                 _exalts.Add(existing);
                 client.States["setSpeed"] = true;
                 if (_speed == -1 || client.Speed < _speed)
@@ -88,7 +98,7 @@ namespace JazzRelay.Plugins
             if (Main != exalt)
             {
                 Main = exalt;
-                JazzRelay.Form.SwapPanels(exalt.Panel, JazzRelay.Form.MainPanel);
+                Multibox.Form.SwapPanels(exalt.Panel, Multibox.Form.MainPanel);
             }
         }
 
@@ -209,7 +219,7 @@ namespace JazzRelay.Plugins
             {
                 if (exalt.Client != client)
                 {
-                    await exalt.Client.ConnectTo(packet.host, 2050, -2, "Realm", new byte[0], -1);
+                    await exalt.Client.ConnectTo(client.ConnectionInfo.Reconnect.host, 2050, -2, "Realm", new byte[0], -1);
                 }
             }
         }

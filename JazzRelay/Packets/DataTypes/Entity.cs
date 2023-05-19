@@ -11,6 +11,7 @@ namespace JazzRelay.Packets.DataTypes
     {
         public ushort ObjectType;
         public ObjectStatusData Stats;
+        public bool IsPlayer => Enum.IsDefined(typeof(Enums.Classes), ObjectType);
 
 
         public void Read(PacketReader r)

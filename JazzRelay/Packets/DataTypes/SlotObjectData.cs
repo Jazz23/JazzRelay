@@ -15,6 +15,7 @@ namespace JazzRelay.Packets.DataTypes
         public byte Unknown = 0;
 
         public SlotObjectData(PacketReader r) => Read(r);
+        public SlotObjectData() { }
 
         public void Read(PacketReader r)
         {

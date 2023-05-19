@@ -9,7 +9,9 @@ using JazzRelay.Properties;
 using Starksoft.Aspen.Proxy;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -43,6 +45,7 @@ namespace JazzRelay
         public List<PacketType> PacketBlackList { get; set; } = new();
         public delegate void PlayerCommand(Client client, string command, string[] args);
         public event PlayerCommand Command;
+        public int Time => _lastPingTime + (int)_sw.ElapsedMilliseconds;
 
         JazzRelay _proxy;
         TcpClient _client;
@@ -54,6 +57,8 @@ namespace JazzRelay
         RC4 _clientRecieveState = new RC4(RC4.HexStringToBytes(Constants.ClientKey));
         RC4 _clientSendState = new RC4(RC4.HexStringToBytes(Constants.ServerKey));
         private Proxy _socks5;
+        private int _lastPingTime;
+        private Stopwatch _sw = new Stopwatch();
 
         public Client(JazzRelay proxy, TcpClient client)
         {
@@ -183,9 +188,6 @@ namespace JazzRelay
                 await (((Task?)hook.Item2.Invoke(hook.Item1, new object[2] { this, instance })) ?? Task.Delay(0));
 
             Packet thePacket = (Packet)instance;
-
-            if (thePacket.GetType().IsEquivalentTo(typeof(PlayerHit)))
-                Console.WriteLine(thePacket.Send);
 
             return thePacket.Send ? (PacketToBytes((Packet)instance, isExalt) ?? totalData) : new byte[0];
         }
@@ -409,7 +411,15 @@ namespace JazzRelay
                         UpdateStats(client, status);
                         return;
                     }
+                    else
+                        client.Entities[status.ObjectId].Stats.Position = status.Position;
                 }
+            }
+
+            public void HookPong(Client client, Pong packet)
+            {
+                client._lastPingTime = packet.Time;
+                client._sw.Restart();
             }
 
             void UpdateStats(Client client, ObjectStatusData newStats)
@@ -444,14 +454,6 @@ namespace JazzRelay
                 string[] info = packet.Text.Remove(0, 1).Split(' ');
 
                 Task.Run(() => client.Command?.Invoke(client, info[0], info.Length > 1 ? info.Skip(1).ToArray() : new string[0]));
-            }
-
-            public void HookPlayerHit(Client client, PlayerHit packet)
-            {
-                Console.WriteLine($"{client.Health}  {client.PrevHealth} {packet.Damage}");
-                client.Health -= packet.Damage;
-                client.PrevHealth -= packet.Damage;
-                if (client.PrevHealth <= 0) client.Dead = true;
             }
 
             void OnCommand(Client client, string command, string[] args)

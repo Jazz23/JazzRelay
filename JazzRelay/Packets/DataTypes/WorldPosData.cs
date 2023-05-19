@@ -12,8 +12,8 @@ namespace JazzRelay.Packets.DataTypes
 {
     public class WorldPosData : IDataType
     {
-        public float X;
-        public float Y;
+        public float X { get; set; }
+        public float Y { get; set; }
 
         public WorldPosData() { }
 
